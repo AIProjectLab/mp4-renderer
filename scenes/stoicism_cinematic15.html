@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Stoicism Visual Engine III — 15 Cinematic Scenes</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:'Georgia',serif;}
+#stage{position:fixed;top:0;left:0;right:0;bottom:110px;display:flex;align-items:center;justify-content:center;background:#000;}
+#wrapper{position:relative;transform-origin:center center;}
+#wrapper canvas{position:absolute;top:0;left:0;width:1920px;height:1080px;display:none;}
+#wrapper canvas.active{display:block;}
+#panel{position:fixed;bottom:0;left:0;right:0;height:110px;background:rgba(2,2,4,0.98);border-top:1px solid rgba(255,255,255,0.06);display:flex;flex-direction:column;padding:0 20px;backdrop-filter:blur(20px);}
+#progress-wrap{height:3px;width:100%;background:rgba(255,255,255,0.05);position:relative;cursor:pointer;flex-shrink:0;}
+#progress-fill{height:100%;background:linear-gradient(90deg,#e8b86d,#f0d080,#c8903a);width:0%;transition:width 0.25s linear;position:relative;}
+#progress-fill::after{content:'';position:absolute;right:-5px;top:-4px;width:11px;height:11px;border-radius:50%;background:#e8b86d;box-shadow:0 0 12px #e8b86d88;}
+#controls{display:flex;align-items:center;gap:14px;padding:8px 0 4px;flex-shrink:0;}
+#playbtn{width:44px;height:44px;border-radius:50%;border:1px solid rgba(232,184,109,0.45);background:rgba(232,184,109,0.07);color:#e8b86d;font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0;}
+#playbtn:hover{background:rgba(232,184,109,0.18);border-color:#e8b86d;}
+.navbtn{width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,0.1);background:transparent;color:rgba(255,255,255,0.45);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0;}
+.navbtn:hover{border-color:rgba(255,255,255,0.3);color:#fff;}
+#scene-info{display:flex;flex-direction:column;gap:2px;margin-right:auto;}
+#scene-name{font-size:13px;color:rgba(255,255,255,0.82);letter-spacing:.04em;}
+#scene-sub{font-size:10px;color:rgba(255,255,255,0.22);letter-spacing:.1em;text-transform:uppercase;}
+#timer-wrap{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+#timer-display{font-size:12px;color:rgba(255,255,255,0.3);letter-spacing:.08em;font-variant-numeric:tabular-nums;}
+#speed-btn{padding:4px 11px;border-radius:3px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:rgba(255,255,255,0.3);font-size:11px;cursor:pointer;transition:all .2s;}
+#speed-btn:hover{border-color:rgba(255,255,255,0.28);color:rgba(255,255,255,0.65);}
+#strip-wrap{overflow-x:auto;flex:1;padding:5px 0 8px;scrollbar-width:none;}
+#strip-wrap::-webkit-scrollbar{display:none;}
+#strip{display:flex;gap:7px;align-items:center;min-width:max-content;}
+.thumb{flex-shrink:0;width:90px;height:42px;border-radius:5px;border:1px solid rgba(255,255,255,0.07);background:rgba(255,255,255,0.03);cursor:pointer;transition:all .15s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;position:relative;overflow:hidden;}
+.thumb:hover{border-color:rgba(255,255,255,0.22);background:rgba(255,255,255,0.07);}
+.thumb.active{border-color:#e8b86d;background:rgba(232,184,109,0.08);}
+.thumb .tnum{font-size:9px;color:rgba(255,255,255,0.2);letter-spacing:.08em;}
+.thumb .tname{font-size:9px;color:rgba(255,255,255,0.5);text-align:center;line-height:1.25;padding:0 5px;}
+.thumb.active .tname{color:#e8b86d;}
+.thumb .tbar{position:absolute;bottom:0;left:0;height:2px;background:linear-gradient(90deg,#e8b86d,#f0d080);width:0%;}
+</style>
+</head>
+<body>
+<div id="stage"><div id="wrapper"></div></div>
+<div id="panel">
+  <div id="progress-wrap" onclick="seekClick(event)"><div id="progress-fill"></div></div>
+  <div id="controls">
+    <button class="navbtn" onclick="prev()">&#9664;</button>
+    <button id="playbtn" onclick="togglePlay()">&#9654;</button>
+    <button class="navbtn" onclick="next()">&#9654;&#9654;</button>
+    <div id="scene-info">
+      <div id="scene-name">Loading…</div>
+      <div id="scene-sub">Cinematic Series III · 1920×1080</div>
+    </div>
+    <div id="timer-wrap">
+      <div id="timer-display">0:00 / 0:00</div>
+      <button id="speed-btn" onclick="cycleSpeed()">1×</button>
+    </div>
+  </div>
+  <div id="strip-wrap"><div id="strip"></div></div>
+</div>
+<script>
+const W=1920,H=1080;
+const SCENES=[
+  {name:'Dying Star Collapse',  sub:'Gravity surrenders to time',          dur:22},
+  {name:'Cathedral of Light',   sub:'Shafts through ancient dark',          dur:20},
+  {name:'Ocean Trench Descent', sub:'Pressure becomes peace',               dur:22},
+  {name:'Ink in Water',         sub:'Order dissolving into chaos',          dur:18},
+  {name:'Eclipse Crown',        sub:'The moment between dark and light',    dur:20},
+  {name:'Burning Library',      sub:'Knowledge returns to ash',             dur:18},
+  {name:'Glass Desert Rain',    sub:'Crystalline drops on silence',         dur:20},
+  {name:'Tectonic Drift',       sub:'Continents remember patience',         dur:22},
+  {name:'Quantum Foam',         sub:'Reality at the smallest scale',        dur:18},
+  {name:'Lone Candle Storm',    sub:'One flame against everything',         dur:20},
+  {name:'Ancient Tree Rings',   sub:'Each year a scar and a gift',         dur:22},
+  {name:'Wormhole Passage',     sub:'Folding the distance between now',     dur:18},
+  {name:'Monks Robe in Wind',   sub:'Stillness inside the movement',        dur:20},
+  {name:'Tide Pulls the Shore', sub:'Inevitable, patient, returning',       dur:22},
+  {name:'First Light of Dawn',  sub:'Every darkness ends exactly once',     dur:24},
+];
+
+const SPEEDS=[1,1.5,2,0.5];
+let speedIdx=0,cur=0,playing=false,sT=0,frameT=0;
+const FPS=60;
+const ctxs=[];
+
+const wrapper=document.getElementById('wrapper');
+wrapper.style.width=W+'px';wrapper.style.height=H+'px';
+for(let i=0;i<SCENES.length;i++){
+  const c=document.createElement('canvas');
+  c.width=W;c.height=H;c.id='cv'+i;
+  wrapper.appendChild(c);ctxs.push(c.getContext('2d'));
+}
+
+function scaleStage(){
+  const st=document.getElementById('stage');
+  const s=Math.min(st.clientWidth/W,st.clientHeight/H);
+  wrapper.style.transform=`scale(${s})`;
+  wrapper.style.marginLeft=((st.clientWidth-W*s)/2)+'px';
+  wrapper.style.marginTop=((st.clientHeight-H*s)/2)+'px';
+}
+window.addEventListener('resize',scaleStage);scaleStage();
+
+const strip=document.getElementById('strip');
+SCENES.forEach((sc,i)=>{
+  const d=document.createElement('div');
+  d.className='thumb'+(i===0?' active':'');d.id='th'+i;
+  d.innerHTML=`<div class="tnum">${String(i+1).padStart(2,'0')}</div><div class="tname">${sc.name}</div><div class="tbar" id="tb${i}"></div>`;
+  d.onclick=()=>goTo(i);strip.appendChild(d);
+});
+
+function goTo(i){
+  document.getElementById('cv'+cur).classList.remove('active');
+  document.getElementById('th'+cur).classList.remove('active');
+  document.getElementById('tb'+cur).style.width='0%';
+  cur=i;sT=0;
+  document.getElementById('cv'+i).classList.add('active');
+  document.getElementById('th'+i).classList.add('active');
+  document.getElementById('scene-name').textContent=SCENES[i].name;
+  document.getElementById('th'+i).scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'});
+}
+function prev(){if(cur>0)goTo(cur-1);}
+function next(){if(cur<SCENES.length-1)goTo(cur+1);}
+function togglePlay(){playing=!playing;document.getElementById('playbtn').innerHTML=playing?'&#9646;&#9646;':'&#9654;';}
+function cycleSpeed(){speedIdx=(speedIdx+1)%SPEEDS.length;document.getElementById('speed-btn').textContent=SPEEDS[speedIdx]+'×';}
+function seekClick(e){
+  const rect=e.currentTarget.getBoundingClientRect();const pct=(e.clientX-rect.left)/rect.width;
+  const tot=SCENES.reduce((a,s)=>a+s.dur,0);let acc=0,tgt=pct*tot;
+  for(let i=0;i<SCENES.length;i++){if(acc+SCENES[i].dur>=tgt){goTo(i);sT=Math.floor((tgt-acc)*FPS/SPEEDS[speedIdx]);break;}acc+=SCENES[i].dur;}
+}
+function fmt(s){return Math.floor(s/60)+':'+(s%60<10?'0':'')+s%60;}
+
+function masterLoop(){
+  requestAnimationFrame(masterLoop);frameT++;
+  const sc=SCENES[cur];const tot=sc.dur*FPS/SPEEDS[speedIdx];
+  if(playing){sT++;if(sT>=tot){if(cur<SCENES.length-1)goTo(cur+1);else{playing=false;document.getElementById('playbtn').innerHTML='&#9654;';}}}
+  R[cur](frameT,sT,tot);
+  const pct=Math.min(1,sT/tot)*100;
+  document.getElementById('tb'+cur).style.width=pct+'%';
+  const el=Math.floor(sT/FPS*SPEEDS[speedIdx]);
+  document.getElementById('timer-display').textContent=fmt(el)+' / '+fmt(sc.dur);
+  const totD=SCENES.reduce((a,s)=>a+s.dur,0);
+  const doneD=SCENES.slice(0,cur).reduce((a,s)=>a+s.dur,0)+el;
+  document.getElementById('progress-fill').style.width=(doneD/totD*100)+'%';
+}
+
+const L=(a,b,t)=>a+(b-a)*t;
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const ei=(t)=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+const R=[];
+
+/* ═══════════════════════════════════
+   0 · DYING STAR COLLAPSE
+   Outer layers peel away revealing
+   blinding white core, then black
+═══════════════════════════════════ */
+(()=>{
+  const debris=Array.from({length:1200},(_,i)=>{
+    const a=(i/1200)*Math.PI*2*3+rnd(-0.1,0.1);
+    return{a,r:rnd(60,520),vr:rnd(0.4,2.2),va:rnd(-0.008,0.008),
+      sz:rnd(1,4),hue:rnd(15,60),al:rnd(0.3,0.8)};
+  });
+  R[0]=(gt,st,tot)=>{
+    const cx=ctxs[0];const p=st/tot;
+    const collapse=ei(Math.min(1,p*1.6));
+    const afterglow=p>0.62?ei((p-0.62)/0.38):0;
+
+    // deep space bg
+    cx.fillStyle=`rgba(0,0,${Math.floor(L(0,3,p))},0.22)`;cx.fillRect(0,0,W,H);
+
+    // outer corona — expands first, then collapses
+    const coronaR=L(300,800,Math.min(1,p*1.5))*(1-collapse*0.95);
+    for(let r=4;r>=1;r--){
+      const cg=cx.createRadialGradient(W/2,H/2,coronaR*0.1,W/2,H/2,coronaR*r*0.5);
+      cg.addColorStop(0,`rgba(255,${Math.floor(L(180,80,collapse))},0,${0.08*(1-collapse*0.8)})`);
+      cg.addColorStop(1,'rgba(0,0,0,0)');cx.fillStyle=cg;cx.fillRect(0,0,W,H);
+    }
+
+    // star body
+    const starR=L(120,15,collapse);
+    const sg=cx.createRadialGradient(W/2,H/2,0,W/2,H/2,starR*2.5);
+    sg.addColorStop(0,`rgba(255,255,${Math.floor(L(200,255,collapse))},${L(0.9,1,collapse)})`);
+    sg.addColorStop(0.15,`rgba(255,${Math.floor(L(200,255,collapse))},100,${L(0.7,0.05,collapse)})`);
+    sg.addColorStop(0.5,`rgba(255,${Math.floor(L(80,20,collapse))},0,${L(0.2,0,collapse)})`);
+    sg.addColorStop(1,'rgba(0,0,0,0)');
+    cx.fillStyle=sg;cx.fillRect(0,0,W,H);
+
+    // debris field — ejected by explosion
+    debris.forEach(d=>{
+      d.r+=d.vr*(1+collapse*3);d.a+=d.va;
+      if(d.r>820){d.r=rnd(40,80);d.a=Math.random()*Math.PI*2;}
+      const px=W/2+Math.cos(d.a)*d.r*(1+collapse*0.5);
+      const py=H/2+Math.sin(d.a)*d.r*(0.4+collapse*0.1);
+      const heat=Math.max(0,1-d.r/500);
+      cx.beginPath();cx.arc(px,py,d.sz*(0.5+heat),0,Math.PI*2);
+      cx.fillStyle=`hsla(${d.hue},90%,70%,${d.al*heat*0.6*(1-afterglow*0.9)})`;cx.fill();
+    });
+
+    // neutron star flash
+    if(collapse>0.9){
+      const fl=cx.createRadialGradient(W/2,H/2,0,W/2,H/2,200*(collapse-0.9)*10);
+      fl.addColorStop(0,`rgba(255,255,255,${(collapse-0.9)*8})`);
+      fl.addColorStop(1,'rgba(0,0,0,0)');cx.fillStyle=fl;cx.fillRect(0,0,W,H);
+    }
+    // afterglow — deep dark with tiny remnant
+    if(afterglow>0){
+      cx.fillStyle=`rgba(0,0,0,${afterglow*0.6})`;cx.fillRect(0,0,W,H);
+      cx.beginPath();cx.arc(W/2,H/2,4+Math.sin(gt*0.15)*1,0,Math.PI*2);
+      cx.fillStyle=`rgba(180,220,255,${afterglow*0.6})`;cx.fill();
+    }
+  };
+})();
+
+/* ═══════════════════════════════════
+   1 · CATHEDRAL OF LIGHT
+   God rays through vaulted dark
+═══════════════════════════════════ */
+(()=>{
+  const dustMotes=Array.from({length:400},()=>({
+    x:rnd(W*0.15,W*0.85),y:rnd(-50,H),
+    vy:rnd(0.08,0.35),vx:(Math.random()-0.5)*0.08,
+    sz:rnd(0.5,2.2),ph:Math.random()*Math.PI*2,al:rnd(0.15,0.6)
+  }));
+  const archPts=[];
+  for(let i=0;i<=40;i++){const t=i/40;archPts.push({x:W*0.1+t*W*0.8,y:H*0.08+Math.sin(t*Math.PI)*-H*0.06});}
+
+  R[1]=(gt,st,tot)=>{
+    const cx=ctxs[1];const p=st/tot;
+    // stone dark background
+    cx.fillStyle='rgba(3,3,5,0.22)';cx.fillRect(0,0,W,H);
+
+    // arched ceiling suggestion
+    cx.beginPath();cx.moveTo(0,0);archPts.forEach(pt=>cx.lineTo(pt.x,pt.y));cx.lineTo(W,0);cx.closePath();
+    cx.fillStyle='rgba(8,7,12,0.4)';cx.fill();
+
+    // god rays — 9 beams through rose window opening
+    const rw={x:W/2,y:H*0.06,r:80};
+    for(let b=0;b<9;b++){
+      const ba=(-0.4+b*0.1)+Math.sin(gt*0.004+b*0.3)*0.015;
+      const bw=18+b*4;const bl=H*1.1;
+      const bx1=rw.x+Math.cos(ba-Math.PI*0.5)*rw.r*0.5;
+      const by1=rw.y+Math.sin(ba-Math.PI*0.5)*rw.r*0.5;
+
+      cx.save();cx.translate(bx1,by1);cx.rotate(ba);
+      const rg=cx.createLinearGradient(0,0,0,bl);
+      const baseAl=0.04+Math.sin(gt*0.012+b*0.4)*0.015;
+      rg.addColorStop(0,`rgba(255,240,200,${baseAl*p})`);
+      rg.addColorStop(0.3,`rgba(255,220,160,${baseAl*0.6*p})`);
+      rg.addColorStop(1,'rgba(255,200,120,0)');
+      cx.fillStyle=rg;
+      cx.beginPath();cx.moveTo(-bw/2,0);cx.lineTo(bw/2,0);
+      cx.lineTo(bw*2.5,bl);cx.lineTo(-bw*2.5,bl);cx.closePath();
+      cx.fill();cx.restore();
+    }
+
+    // rose window glow at source
+    const rwg=cx.createRadialGradient(rw.x,rw.y,0,rw.x,rw.y,rw.r*2);
+    rwg.addColorStop(0,`rgba(255,240,200,${p*0.7})`);
+    rwg.addColorStop(0.3,`rgba(255,200,100,${p*0.3})`);
+    rwg.addColorStop(1,'rgba(0,0,0,0)');cx.fillStyle=rwg;cx.fillRect(0,0,W,H);
+
+    // floating dust in beams
+    dustMotes.forEach(d=>{
+      d.y+=d.vy;d.x+=d.vx+Math.sin(gt*0.008+d.ph)*0.12;
+      if(d.y>H+10){d.y=-10;d.x=rnd(W*0.15,W*0.85);}
+      // only visible inside beam zone
+      const inBeam=d.x>W*0.12&&d.x<W*0.88;
+      const tw=Math.sin(gt*0.06+d.ph)*0.4+0.6;
+      cx.beginPath();cx.arc(d.x,d.y,d.sz,0,Math.PI*2);
+      cx.fillStyle=`rgba(255,240,200,${d.al*tw*inBeam*p*0.7})`;cx.fill();
+    });
+
+    // stone floor reflection (faint)
+    const fr=cx.createLinearGradient(0,H*0.75,0,H);
+    fr.addColorStop(0,'rgba(255,220,140,0)');
+    fr.addColorStop(0.3,`rgba(255,200,100,${p*0.04})`);
+    fr.addColorStop(1,'rgba(0,0,0,0)');
+    cx.fillStyle=fr;cx.fillRect(0,H*0.75,W,H*0.25);
+  };
+})();
+
+/* ═══════════════════════════════════
+   2 · OCEAN TRENCH DESCENT
+   Slow sinking into absolute dark,
+   bioluminescent flickers below
+═══════════════════════════════════ */
+(()=>{
+  const particles=Array.from({length:300},()=>({
+    x:rnd(0,W),y:rnd(0,H),
+    vy:rnd(-0.1,0.15),vx:(Math.random()-0.5)*0.08,
+    sz:rnd(0.4,2),ph:Math.random()*Math.PI*2,
+    hue:rnd(160,220),al:rnd(0.05,0.3)
+  }));
+  const abyssOrgs=Array.from({length:25},()=>({
+    x:rnd(W*0.1,W*0.9),y:rnd(H*0.6,H),
+    ph:Math.random()*Math.PI*2,sz:rnd(2,8),
+    hue:rnd(140,200),pulse:rnd(0.03,0.09)
+  }));
+  R[2]=(gt,st,tot)=>{
+    const cx=ctxs[2];const p=st/tot;
+    const depth=ei(p); // 0=surface, 1=abyss
+
+    // water color shift: cyan→dark blue→black
+    const r=Math.floor(L(0,0,depth)),g2=Math.floor(L(25,8,depth)),b=Math.floor(L(50,15,depth));
+    cx.fillStyle=`rgba(${r},${g2},${b},0.22)`;cx.fillRect(0,0,W,H);
+
+    // pressure vignette
+    const vg=cx.createRadialGradient(W/2,H/2,H*0.2,W/2,H/2,H*0.75);
+    vg.addColorStop(0,'rgba(0,0,0,0)');
+    vg.addColorStop(1,`rgba(0,0,${Math.floor(L(20,0,depth))},${0.3+depth*0.35})`);
+    cx.fillStyle=vg;cx.fillRect(0,0,W,H);
+
+    // surface light rays (fade as depth increases)
+    if(depth<0.8){
+      for(let r2=0;r2<5;r2++){
+        const rx=W*0.3+r2*W*0.1,ral=0.025*(1-depth*1.2)*Math.max(0,1);
+        if(ral<=0)return;
+        const lg=cx.createLinearGradient(rx,0,rx+30,H*0.7);
+        lg.addColorStop(0,`rgba(100,200,255,${ral+Math.sin(gt*0.015+r2)*0.008})`);
+        lg.addColorStop(1,'rgba(0,20,60,0)');
+        cx.fillStyle=lg;cx.beginPath();cx.moveTo(rx,0);cx.lineTo(rx+20,0);
+        cx.lineTo(rx+60,H*0.7);cx.lineTo(rx-20,H*0.7);cx.closePath();cx.fill();
+      }
+    }
+
+    // suspended particles (marine snow)
+    particles.forEach(d=>{
+      d.y+=d.vy;d.x+=d.vx+Math.sin(gt*0.006+d.ph)*0.06;
+      if(d.y<-5)d.y=H+5;if(d.y>H+5)d.y=-5;
+      cx.beginPath();cx.arc(d.x,d.y,d.sz,0,Math.PI*2);
+      cx.fillStyle=`hsla(${d.hue},60%,80%,${d.al*(0.3+depth*0.4)})`;cx.fill();
+    });
+
+    // abyss organisms — only appear deep
+    if(depth>0.4){
+      abyssOrgs.forEach(o=>{
+        const vis=(depth-0.4)/0.6;
+        const pulse=Math.sin(gt*o.pulse+o.ph)*0.5+0.5;
+        const og=cx.createRadialGradient(o.x,o.y,0,o.x,o.y,o.sz*3*pulse);
+        og.addColorStop(0,`hsla(${o.hue},90%,70%,${vis*0.4*pulse})`);
+        og.addColorStop(1,'rgba(0,0,0,0)');cx.fillStyle=og;
+        cx.fillRect(o.x-o.sz*4,o.y-o.sz*4,o.sz*8,o.sz*8);
+        cx.beginPath();cx.arc(o.x,o.y,o.sz*0.5*pulse,0,Math.PI*2);
+        cx.fillStyle=`hsla(${o.hue},95%,80%,${vis*0.7})`;cx.fill();
+      });
+    }
+
+    // crush depth indicator — slight screen compression feel
+    if(depth>0.7){
+      cx.fillStyle=`rgba(0,0,0,${(depth-0.7)*0.5})`;
+      cx.fillRect(0,0,W,H*0.08);
+      cx.fillRect(0,H*0.92,W,H*0.08);
+    }
+  };
+})();
+
+/* ═══════════════════════════════════
+   3 · INK IN WATER
+   Drop of black ink blooms, tendrils
+   curl outward in slow motion
+═══════════════════════════════════ */
+(()=>{
+  const tendrils=Array.from({length:18},(_,i)=>{
+    const a=(i/18)*Math.PI*2;
+    return{
+      a,pts:[{x:W/2,y:H/2}],
+      curA:a,turnRate:rnd(-0.04,0.04),
+      spd:rnd(0.8,2.2),len:0,maxLen:rnd(200,450),
+      width:rnd(1.5,5),al:rnd(0.3,0.7)
+    };
+  });
+  R[3]=(gt,st,tot)=>{
+    const cx=ctxs[3];const p=st/tot;
+    // milky water
+    cx.fillStyle='rgba(245,242,235,0.08)';cx.fillRect(0,0,W,H);
+
+    // water texture
+    for(let i=0;i<15;i++){
+      cx.beginPath();
+      const wy=H*0.2+i*H*0.05+Math.sin(gt*0.008+i)*3;
+      cx.moveTo(0,wy);cx.lineTo(W,wy);
+      cx.strokeStyle='rgba(200,195,185,0.04)';cx.lineWidth=1;cx.stroke();
+    }
+
+    // ink tendrils grow
+    tendrils.forEach(t=>{
+      t.curA+=t.turnRate+Math.sin(gt*0.02+t.a)*0.02;
+      const head=t.pts[t.pts.length-1];
+      if(t.len<t.maxLen*p*1.6){
+        const nx=head.x+Math.cos(t.curA)*t.spd;
+        const ny=head.y+Math.sin(t.curA)*t.spd;
+        t.pts.push({x:nx,y:ny});t.len+=t.spd;
+      }
+      if(t.pts.length<2)return;
+      // draw tendril
+      for(let i=1;i<t.pts.length;i++){
+        const prog2=i/t.pts.length;
+        cx.beginPath();cx.moveTo(t.pts[i-1].x,t.pts[i-1].y);cx.lineTo(t.pts[i].x,t.pts[i].y);
+        const width=t.width*(1-prog2*0.7);
+        cx.strokeStyle=`rgba(15,10,25,${t.al*(1-prog2*0.5)})`;
+        cx.lineWidth=width;cx.lineCap='round';cx.stroke();
+        // ink bloom at head
+        if(i===t.pts.length-1){
+          const bg=cx.createRadialGradient(t.pts[i].x,t.pts[i].y,0,t.pts[i].x,t.pts[i].y,t.width*3);
+          bg.addColorStop(0,`rgba(20,15,35,${t.al*0.4})`);bg.addColorStop(1,'rgba(0,0,0,0)');
+          cx.fillStyle=bg;cx.fillRect(t.pts[i].x-t.width*4,t.pts[i].y-t.width*4,t.width*8,t.width*8);
+        }
+      }
+    });
+
+    // central bloom
+    const bloomR=30+p*80;
+    const ig=cx.createRadialGradient(W/2,H/2,0,W/2,H/2,bloomR);
+    ig.addColorStop(0,'rgba(15,10,30,0.7)');ig.addColorStop(0.4,'rgba(20,15,35,0.25)');ig.addColorStop(1,'rgba(0,0,0,0)');
+    cx.fillStyle=ig;cx.fillRect(0,0,W,H);
+  };
+})();
+
+/* ═══════════════════════════════════
+   4 · ECLIPSE CROWN
+   Sun disappears, corona emerges,
+   chromosphere fire ring burns
+═══════════════════════════════════ */
+(()=>{
+  const coronaRays=Array.from({length:80},(_,i)=>({
+    a:(i/80)*Math.PI*2,len:rnd(80,280),
+    ph:Math.random()*Math.PI*2,spd:rnd(0.003,0.009),
+    width:rnd(1,6)
+  }));
+  R[4]=(gt,st,tot)=>{
+    const cx=ctxs[4];const p=st/tot;
+    // totality progress: 0=pre, 0.15=first contact, 0.5=totality, 0.85=end, 1=post
+    const totality=p<0.5?ei(p/0.5):1-ei((p-0.5)/0.5);
+
+    // space darkens
+    cx.fillStyle=`rgba(${Math.floor(L(8,0,totality))},${Math.floor(L(6,0,totality))},${Math.floor(L(20,2,totality))},0.2)`;
+    cx.fillRect(0,0,W,H);
+
+    const ox=W/2,oy=H/2;
+    const sunR=160;const moonR=sunR*1.02;
+    // moon offset
+    const moonOff=L(320,-5,ei(p<0.5?p*2:1))*L(1,-1,Math.floor(p*2));
+
+    // CORONA — visible during totality
+    if(totality>0.05){
+      coronaRays.forEach(r=>{
+        r.a+=r.spd*0.1;
+        const pLen=r.len*(0.6+Math.sin(gt*0.02+r.ph)*0.4)*totality;
+        const sx=ox+Math.cos(r.a)*moonR,sy=oy+Math.sin(r.a)*moonR;
+        const ex=ox+Math.cos(r.a)*(moonR+pLen),ey=oy+Math.sin(r.a)*(moonR+pLen);
+        const rg=cx.createLinearGradient(sx,sy,ex,ey);
+        rg.addColorStop(0,`rgba(255,240,200,${totality*0.35})`);
+        rg.addColorStop(0.3,`rgba(255,200,120,${totality*0.15})`);
+        rg.addColorStop(1,'rgba(255,180,80,0)');
+        cx.strokeStyle=rg;cx.lineWidth=r.width*(0.5+Math.sin(gt*0.04+r.ph)*0.5);
+        cx.lineCap='round';cx.beginPath();cx.moveTo(sx,sy);cx.lineTo(ex,ey);cx.stroke();
+      });
+      // outer corona glow
+      const cg=cx.createRadialGradient(ox,oy,moonR,ox,oy,moonR+350*totality);
+      cg.addColorStop(0,`rgba(255,230,160,${totality*0.2})`);
+      cg.addColorStop(0.4,`rgba(255,180,80,${totality*0.06})`);
+      cg.addColorStop(1,'rgba(0,0,0,0)');cx.fillStyle=cg;cx.fillRect(0,0,W,H);
+    }
+
+    // chromosphere fire ring
+    if(totality>0.1){
+      for(let r=0;r<60;r++){
+        const ra=(r/60)*Math.PI*2+gt*0.003;
+        const rLen=12+Math.sin(gt*0.08+r*0.4)*8;
+        const px=ox+Math.cos(ra)*(moonR-4),py=oy+Math.sin(ra)*(moonR-4);
+        const px2=ox+Math.cos(ra)*(moonR-4+rLen),py2=oy+Math.sin(ra)*(moonR-4+rLen);
+        cx.beginPath();cx.moveTo(px,py);cx.lineTo(px2,py2);
+        cx.strokeStyle=`rgba(255,${Math.floor(80+Math.sin(gt*0.1+r)*60)},20,${totality*0.7})`;
+        cx.lineWidth=2.5;cx.stroke();
+      }
+    }
+
+    // sun body (partially covered)
+    const sunMask=cx.createRadialGradient(ox,oy,0,ox,oy,sunR);
+    sunMask.addColorStop(0,'rgba(255,255,220,1)');
+    sunMask.addColorStop(0.6,'rgba(255,220,100,0.8)');
+    sunMask.addColorStop(1,'rgba(255,150,20,0)');
+    cx.fillStyle=sunMask;cx.beginPath();cx.arc(ox,oy,sunR*1.5,0,Math.PI*2);cx.fill();
+
+    // moon disk (covers sun)
+    cx.beginPath();cx.arc(ox+moonOff,oy,moonR,0,Math.PI*2);
+    cx.fillStyle='rgba(2,2,4,1)';cx.fill();
+
+    // diamond ring effect at edges of totality
+    if(totality>0.85||totality<0.15){
+      const diam=cx.createRadialGradient(ox+moonOff*0.3,oy,moonR-5,ox+moonOff*0.3,oy,moonR+20);
+      diam.addColorStop(0,`rgba(255,255,255,${(1-totality)*0.8})`);
+      diam.addColorStop(1,'rgba(0,0,0,0)');cx.fillStyle=diam;cx.fillRect(0,0,W,H);
+    }
+
+    // stars during totality
+    if(totality>0.3){
+      for(let i=0;i<120;i++){
+        const sx=((i*337)%W),sy=((i*197)%H);
+        if(Math.sqrt((sx-ox)**2+(sy-oy)**2)<moonR+100)continue;
+        cx.beginPath();cx.arc(sx,sy,rnd(0.3,1.4),0,Math.PI*2);
+        cx.fillStyle=`rgba(255,255,255,${totality*0.5*((Math.sin(gt*0.05+i)*0.3)+0.7)})`;cx.fill();
+      }
+    }
+  };
+})();
+
+/* ═══════════════════════════════════
+   5 · BURNING LIBRARY
+   Pages of light rise like fireflies,
+   warm embers of lost knowledge
+═══════════════════════════════════ */
+(()=>{
+  const pages=Array.from({length:200},()=>({
+    x:rnd(W*0.1,W*0.9),y:H+rnd(0,200),
+    vx:(Math.random()-0.5)*0.6,vy:-rnd(0.4,1.8),
+    rot:rnd(0,Math.PI*2),vrot:(Math.random()-0.5)*0.03,
+    w:rnd(20,55),h:rnd(14,38),al:rnd(0.2,0.6),
+    age:Math.random()*200,phase:Math.random()*Math.PI*2
+  }));
+  const embers2=Array.from({length:500},()=>({
+    x:rnd(0,W),y:rnd(H*0.4,H),
+    vy:-rnd(0.3,1.2),vx:(Math.random()-0.5)*0.4,
+    sz:rnd(0.5,2.5),ph:Math.random()*Math.PI*2,al:rnd(0.2,0.7)
+  }));
+  R[5]=(gt,st,tot)=>{
+    const cx=ctxs[5];const p=st/tot;
+    // warm dark
+    cx.fillStyle='rgba(5,2,0,0.16)';cx.fillRect(0,0,W,H);
+    // hearth glow from bottom
+    const hg=cx.createLinearGradient(0,H,0,H*0.5);
+    hg.addColorStop(0,`rgba(255,${Math.floor(80+p*40)},10,${p*0.18})`);
+    hg.addColorStop(1,'rgba(0,0,0,0)');cx.fillStyle=hg;cx.fillRect(0,0,W,H);
+
+    // embers rising
+    embers2.forEach(e=>{
+      e.y+=e.vy;e.x+=e.vx+Math.sin(gt*0.02+e.ph)*0.3;
+      if(e.y<-10){e.y=H+10;e.x=rnd(0,W);}
+      const heat=Math.max(0,e.y/H);const tw=Math.sin(gt*0.1+e.ph)*0.4+0.6;
+      cx.beginPath();cx.arc(e.x,e.y,e.sz*tw,0,Math.PI*2);
+      cx.fillStyle=`rgba(255,${Math.floor(L(180,80,1-heat))},0,${e.al*heat*tw})`;cx.fill();
+    });
+
+    // burning pages floating up
+    pages.forEach(pg=>{
+      pg.age++;pg.y+=pg.vy;pg.x+=pg.vx+Math.sin(gt*0.01+pg.phase)*0.4;
+      pg.rot+=pg.vrot;
+      if(pg.y<-80){pg.y=H+rnd(0,100);pg.x=rnd(W*0.1,W*0.9);pg.age=0;}
+      const life=Math.max(0,1-pg.age/300);
+      cx.save();cx.translate(pg.x,pg.y);cx.rotate(pg.rot);
+      // page glow
+      const pg_g=cx.createRadialGradient(0,0,0,0,0,pg.w);
+      pg_g.addColorStop(0,`rgba(255,220,100,${pg.al*life*0.5})`);
+      pg_g.addColorStop(1,'rgba(0,0,0,0)');cx.fillStyle=pg_g;
+      cx.fillRect(-pg.w,-pg.h,pg.w*2,pg.h*2);
+      // page shape
+      cx.beginPath();cx.rect(-pg.w/2,-pg.h/2,pg.w,pg.h);
+      cx.fillStyle=`rgba(255,${Math.floor(L(240,120,pg.age/300))},${Math.floor(L(180,20,pg.age/300))},${pg.al*life*0.6})`;cx.fill();
+      // text line suggestions
+      for(let l=0;l<3;l++){cx.beginPath();cx.moveTo(-pg.w*0.4,(-pg.h*0.3+l*pg.h*0.3));cx.lineTo(pg.w*0.4,(-pg.h*0.3+l*pg.h*0.3));cx.strokeStyle=`rgba(80,40,0,${pg.al*life*0.4})`;cx.lineWidth=0.8;cx.stroke();}
+      cx.restore();
+    });
+
+    // smoke wisps
+    for(let i=0;i<8;i++){
+      const sx=W*0.2+i*W*0.08,sy=H*0.4+Math.sin(gt*0.01+i)*20;
+      const smg=cx.createRadialGradient(sx,sy,0,sx,sy,rnd(40,90));
+      smg.addColorStop(0,`rgba(60,50,40,${0.06*p+Math.sin(gt*0.02+i)*0.01})`);
+      smg.addColorStop(1,'rgba(0,0,0,0)');cx.fillStyle=smg;cx.fillRect(sx-95,sy-95,190,190);
+    }
+  };
+})();
+
+/* ═══════════════════════════════════
+   6 · GLASS DESERT RAIN
+   Perfect crystal drops fall on
+   invisible glass surface, rings form
+═══════════════════════════════════ */
+(()=>{
+  const drops2=[];let nextDrop=0;
+  const glassRipples=[];
+  const dunes2=Array.from({length:5},(_,i)=>({y:H*0.55+i*80,amp:20+i*8,freq:0.003+i*0.001,ph:i*0.7}));
+  R[6]=(gt,st,tot)=>{
+    const cx=ctxs[6];const p=st/tot;
+    cx.fillStyle='rgba(4,3,8,0.2)';cx.fillRect(0,0,W,H);
+
+    // night desert — dark sand dunes
+    dunes2.forEach((d,i)=>{
+      cx.beginPath();cx.moveTo(0,H);
+      for(let x=0;x<=W;x+=4){cx.lineTo(x,d.y+Math.sin(x*d.freq+d.ph)*d.amp);}
+      cx.lineTo(W,H);cx.closePath();
+      const shade=12+i*8;
+      cx.fillStyle=`rgba(${shade+5},${shade},${shade-3},0.7)`;cx.fill();
+    });
+
+    // stars in sky
+    for(let i=0;i<180;i++){const sx=((i*337)%W),sy=((i*197)%(H*0.5));const tw=Math.sin(gt*0.04+i)*0.3+0.7;cx.beginPath();cx.arc(sx,sy,rnd(0.3,1.2),0,Math.PI*2);cx.fillStyle=`rgba(255,255,255,${tw*0.45})`;cx.fill();}
+
+    // moon
+    const moonGlow=cx.createRadialGradient(W*0.82,H*0.12,0,W*0.82,H*0.12,55);
+    moonGlow.addColorStop(0,'rgba(255,252,230,0.18)');moonGlow.addColorStop(0.4,'rgba(240,235,200,0.06)');moonGlow.addColorStop(1,'rgba(0,0,0,0)');
+    cx.fillStyle=moonGlow;cx.fillRect(W*0.75,H*0.02,140,140);
+    cx.beginPath();cx.arc(W*0.82,H*0.12,24,0,Math.PI*2);cx.fillStyle='rgba(255,252,230,0.55)';cx.fill();
+
+    // falling crystal drops
+    if(gt>=nextDrop){
+      drops2.push({x:rnd(W*0.05,W*0.95),y:-10,vy:rnd(3,8),sz:rnd(1.5,4)});
+      nextDrop=gt+rnd(8,30);
+    }
+    for(let i=drops2.length-1;i>=0;i--){
+      const d=drops2[i];d.y+=d.vy;
+      if(d.y>H*0.53){
+        glassRipples.push({x:d.x,y:H*0.53,r:0,maxR:rnd(60,150),al:0.7,spd:rnd(0.8,1.6)});
+        drops2.splice(i,1);continue;
+      }
+      // elongated drop shape
+      cx.save();cx.translate(d.x,d.y);
+      cx.beginPath();cx.ellipse(0,0,d.sz*0.5,d.sz*1.8,0,0,Math.PI*2);
+      cx.fillStyle=`rgba(180,220,255,0.5)`;cx.fill();
+      cx.restore();
+      // trail
+      cx.beginPath();cx.moveTo(d.x,d.y);cx.lineTo(d.x,d.y-d.vy*3);
+      cx.strokeStyle='rgba(180,220,255,0.2)';cx.lineWidth=d.sz*0.4;cx.stroke();
+    }
+
+    // glass surface ripples
+    for(let i=glassRipples.length-1;i>=0;i--){
+      const r=glassRipples[i];r.r+=r.spd;r.al*=0.96;
+      if(r.r>r.maxR||r.al<0.02){glassRipples.splice(i,1);continue;}
+      const fade=r.al*(1-r.r/r.maxR);
+      // glass surface ring (narrow ellipse)
+      cx.beginPath();cx.ellipse(r.x,r.y,r.r,r.r*0.15,0,0,Math.PI*2);
+      cx.strokeStyle=`rgba(180,220,255,${fade*0.6})`;cx.lineWidth=0.8;cx.stroke();
+      cx.beginPath();cx.ellipse(r.x,r.y,r.r*0.6,r.r*0.09,0,0,Math.PI*2);
+      cx.strokeStyle=`rgba(200,235,255,${fade*0.3})`;cx.lineWidth=0.5;cx.stroke();
+    }
+    // glass surface sheen
+    const gs=cx.createLinearGradient(0,H*0.52,0,H*0.55);
+    gs.addColorStop(0,'rgba(200,230,255,0)');gs.addColorStop(0.5,`rgba(180,220,255,${p*0.05})`);gs.addColorStop(1,'rgba(0,0,0,0)');
+    cx.fillStyle=gs;cx.fillRect(0,H*0.52,W,H*0.04);
+  };
+})();
+
+/* ═══════════════════════════════════
+   7 · TECTONIC DRIFT
+   Continents drift like thoughts,
+   slow inevitable movement
+═══════════════════════════════════ */
+(()=>{
+  // abstract continent shapes as polygon clusters
+  const plates=[
+    {pts:[{x:-180,y:-120},{x:120,y:-140},{x:160,y:40},{x:80,y:160},{x:-100,y:140},{x:-200,y:20}],vx:-0.08,vy:0.03,angle:0,va:0.0002,cx:W*0.35,cy:H*0.45,hue:35},
+    {pts:[{x:-100,y:-160},{x:180,y:-120},{x:200,y:80},{x:100,y:180},{x:-140,y:100}],vx:0.07,vy:-0.02,angle:0,va:-0.0003,cx:W*0.65,cy:H*0.5,hue:40},
+    {pts:[{x:-80,y:-100},{x:100,y:-80},{x:120,y:60},{x:40,y:130},{x:-100,y:60}],vx:-0.05,vy:-0.04,angle:0,va:0.0004,cx:W*0.5,cy:H*0.25,hue:38},
+  ];
+  R[7]=(gt,st,tot)=>{
+    const cx=ctxs[7];const p=st/tot;
+    // ocean deep blue
+    cx.fillStyle='rgba(2,8,20,0.18)';cx.fillRect(0,0,W,H);
+    const og=cx.createRadialGradient(W/2,H/2,0,W/2,H/2,W*0.6);
+    og.addColorStop(0,'rgba(5,25,60,0.15)');og.addColorStop(1,'rgba(0,5,20,0.08)');
+    cx.fillStyle=og;cx.fillRect(0,0,W,H);
+
+    // tectonic activity glow at boundaries
+    plates.forEach(pl=>{
+      pl.cx+=pl.vx;pl.cy+=pl.vy;pl.angle+=pl.va;
+      // boundary collision glow
+      plates.forEach(pl2=>{
+        if(pl===pl2)return;
+        const dx=pl.cx-pl2.cx,dy=pl.cy-pl2.cy;
+        const d=Math.sqrt(dx*dx+dy*dy);
+        if(d<300){
+          const mx=(pl.cx+pl2.cx)/2,my=(pl.cy+pl2.cy)/2;
+          const mg=cx.createRadialGradient(mx,my,0,mx,my,120);
+          mg.addColorStop(0,`rgba(255,150,30,${p*(1-d/300)*0.15})`);
+          mg.addColorStop(1,'rgba(0,0,0,0)');cx.fillStyle=mg;cx.fillRect(mx-125,my-125,250,250);
+        }
+      });
+      cx.save();cx.translate(pl.cx,pl.cy);cx.rotate(pl.angle);
+      // plate shadow
+      cx.shadowColor='rgba(0,0,0,0.4)';cx.shadowBlur=20;cx.shadowOffsetY=8;
+      cx.beginPath();pl.pts.forEach((pt,i)=>i===0?cx.moveTo(pt.x,pt.y):cx.lineTo(pt.x,pt.y));cx.closePath();
+      const pg=cx.createLinearGradient(-200,-200,200,200);
+      pg.addColorStop(0,`hsla(${pl.hue},30%,${20+p*10}%,${0.7+p*0.1})`);
+      pg.addColorStop(0.5,`hsla(${pl.hue},25%,${15+p*8}%,0.8)`);
+      pg.addColorStop(1,`hsla(${pl.hue},20%,${10+p*6}%,0.7)`);
+      cx.fillStyle=pg;cx.fill();
+      // coastline
+      cx.shadowColor='transparent';cx.shadowBlur=0;
+      cx.strokeStyle=`rgba(80,100,60,${p*0.3})`;cx.lineWidth=1;cx.stroke();
+      // mountain range suggestion
+      cx.beginPath();cx.moveTo(-60,-80);cx.lineTo(-20,-120);cx.lineTo(40,-90);cx.lineTo(80,-130);cx.lineTo(120,-70);
+      cx.strokeStyle=`rgba(60,55,40,${p*0.25})`;cx.lineWidth=0.8;cx.stroke();
+      cx.restore();
+    });
+
+    // ocean surface shimmer
+    for(let i=0;i<30;i++){
+      const sx=((i*137+gt)%W),sy=((i*97)%H);
+      cx.beginPath();cx.arc(sx,sy,rnd(1,4),0,Math.PI*2);
+      cx.fillStyle=`rgba(60,120,200,${0.04+Math.sin(gt*0.03+i)*0.02})`;cx.fill();
+    }
+  };
+})();
+
+/* ═══════════════════════════════════
+   8 · QUANTUM FOAM
+   Spacetime bubbles at Planck scale,
+   probabilistic and ephemeral
+═══════════════════════════════════ */
+(()=>{
+  R[8]=(gt,st,tot)=>{
+    const cx=ctxs[8];const p=st/tot;
+    cx.fillStyle='rgba(0,0,2,0.2)';cx.fillRect(0,0,W,H);
+    // probability clouds
+    for(let cloud=0;cloud<12;cloud++){
+      const cx2=W*0.1+cloud*(W*0.075);const cy=H*0.3+Math.sin(gt*0.008+cloud*0.7)*H*0.2;
+      const r=rnd(30,100);const flicker=Math.sin(gt*0.15+cloud*0.9)*0.5+0.5;
+      const cg=cx.createRadialGradient(cx2,cy,0,cx2,cy,r);
+      cg.addColorStop(0,`rgba(${Math.floor(L(80,180,flicker))},${Math.floor(L(120,240,flicker))},255,${0.08*p*flicker})`);
+      cg.addColorStop(1,'rgba(0,0,0,0)');cx.fillStyle=cg;cx.fillRect(cx2-r-5,cy-r-5,r*2+10,r*2+10);
+    }
+    // foam bubbles — appear and pop randomly
+    const N=120;
+    for(let i=0;i<N;i++){
+      const t2=(gt*0.03+i*0.08)%(Math.PI*2);const life=Math.sin(t2)*0.5+0.5;
+      if(life<0.1)continue;
+      const bx=((i*337+Math.floor(gt*0.01+i)*W)%W);
+      const by=((i*197+Math.floor(gt*0.008+i)*H)%H);
+      const br=rnd(2,15)*life;
+      cx.beginPath();cx.arc(bx,by,br,0,Math.PI*2);
+      cx.strokeStyle=`rgba(100,180,255,${life*p*0.25})`;cx.lineWidth=0.5;cx.stroke();
+      cx.fillStyle=`rgba(80,140,255,${life*p*0.04})`;cx.fill();
+    }
+    // quantum entanglement lines
+    for(let i=0;i<20;i++){
+      const a1x=((i*137)%W),a1y=((i*197)%H);
+      const a2x=((i*337+200)%W),a2y=((i*97+150)%H);
+      const entangle=Math.sin(gt*0.08+i)*0.5+0.5;
+      cx.beginPath();cx.setLineDash([2,8]);cx.moveTo(a1x,a1y);cx.lineTo(a2x,a2y);
+      cx.strokeStyle=`rgba(120,200,255,${entangle*p*0.08})`;cx.lineWidth=0.5;cx.stroke();cx.setLineDash([]);
+      [a1x,a2x].forEach((x,j)=>{const y=j===0?a1y:a2y;cx.beginPath();cx.arc(x,y,2+entangle*2,0,Math.PI*2);cx.fillStyle=`rgba(180,220,255,${entangle*p*0.4})`;cx.fill();});
+    }
+  };
+})();
+
+/* ═══════════════════════════════════
+   9 · LONE CANDLE STORM
+   Single flame holds still as dark
+   chaos swirls around it
+═══════════════════════════════════ */
+(()=>{
+  const stormPts=Array.from({length:600},()=>({
+    x:rnd(0,W),y:rnd(0,H),
+    vx:(Math.random()-0.5)*2.5,vy:(Math.random()-0.5)*2.5,
+    sz:rnd(0.5,2),ph:Math.random()*Math.PI*2,al:rnd(0.05,0.2)
+  }));
+  R[9]=(gt,st,tot)=>{
+    const cx=ctxs[9];const p=st/tot;
+    cx.fillStyle='rgba(0,0,0,0.2)';cx.fillRect(0,0,W,H);
+    const ox=W/2,oy=H*0.52;
+
+    // storm chaos — dark particles swirling
+    stormPts.forEach(pt=>{
+      // vortex pull toward center but deflected by candle
+      const dx=pt.x-ox,dy=pt.y-oy;const d=Math.sqrt(dx*dx+dy*dy)+1;
+      const pullStr=Math.min(0.5,800/d);
+      pt.vx+=(-dy/d)*pullStr*0.04-dx*0.001+Math.sin(gt*0.02+pt.ph)*0.08;
+      pt.vy+=(dx/d)*pullStr*0.04-dy*0.001+Math.cos(gt*0.018+pt.ph)*0.08;
+      pt.vx*=0.99;pt.vy*=0.99;pt.x+=pt.vx;pt.y+=pt.vy;
+      if(pt.x<0||pt.x>W||pt.y<0||pt.y>H){pt.x=rnd(0,W);pt.y=rnd(0,H);pt.vx=(Math.random()-0.5)*2.5;pt.vy=(Math.random()-0.5)*2.5;}
+      const distFromCandle=Math.sqrt((pt.x-ox)**2+(pt.y-oy)**2);
+      if(distFromCandle>80){
+        cx.beginPath();cx.arc(pt.x,pt.y,pt.sz,0,Math.PI*2);
+        cx.fillStyle=`rgba(20,15,25,${pt.al})`;cx.fill();
+      }
+    });
+
+    // candle body
+    const candleH=80,candleW=14;
+    cx.fillStyle='rgba(240,225,200,0.85)';
+    cx.fillRect(ox-candleW/2,oy,candleW,candleH);
+    // wax texture
+    cx.fillStyle='rgba(255,250,240,0.15)';cx.fillRect(ox-candleW/2,oy,candleW/3,candleH);
+
+    // wick
+    cx.beginPath();cx.moveTo(ox,oy);cx.lineTo(ox+2,oy-12);
+    cx.strokeStyle='rgba(40,30,20,0.8)';cx.lineWidth=1.2;cx.stroke();
+
+    // calm zone around candle
+    const calm=cx.createRadialGradient(ox,oy-10,0,ox,oy-10,120);
+    calm.addColorStop(0,'rgba(0,0,0,0)');calm.addColorStop(0.7,'rgba(0,0,0,0)');
+    calm.addColorStop(1,'rgba(0,0,0,0.15)');cx.fillStyle=calm;cx.fillRect(ox-125,oy-130,250,250);
+
+    // flame — barely moving despite the storm
+    const flicker=Math.sin(gt*0.12)*0.06+Math.sin(gt*0.17)*0.04;// tiny flicker
+    const fh=28+Math.sin(gt*0.15)*2;
+    const fg=cx.createRadialGradient(ox+flicker*10,oy-fh*0.3,0,ox,oy-fh*0.1,fh*1.2);
+    fg.addColorStop(0,'rgba(255,255,200,0.95)');fg.addColorStop(0.2,'rgba(255,220,100,0.8)');
+    fg.addColorStop(0.5,'rgba(255,140,20,0.5)');fg.addColorStop(1,'rgba(255,80,0,0)');
+    cx.fillStyle=fg;cx.fillRect(ox-fh,oy-fh*2,fh*2,fh*2);
+
+    // flame shape (teardrop)
+    cx.beginPath();cx.moveTo(ox,oy);
+    cx.quadraticCurveTo(ox+8+flicker*12,oy-fh*0.5,ox+flicker*8,oy-fh);
+    cx.quadraticCurveTo(ox+flicker*5,oy-fh*1.6,ox,oy-fh*1.9+flicker*3);
+    cx.quadraticCurveTo(ox-flicker*5,oy-fh*1.6,ox-flicker*8,oy-fh);
+    cx.quadraticCurveTo(ox-8+flicker*12,oy-fh*0.5,ox,oy);
+    cx.fillStyle='rgba(255,200,60,0.75)';cx.fill();
+    cx.beginPath();cx.moveTo(ox,oy);cx.quadraticCurveTo(ox+3,oy-fh*0.6,ox,oy-fh*1.4);cx.quadraticCurveTo(ox-3,oy-fh*0.6,ox,oy);
+    cx.fillStyle='rgba(255,250,220,0.6)';cx.fill();
+
+    // candle glow on surroundings
+    const glow=cx.createRadialGradient(ox,oy-fh,0,ox,oy,200);
+    glow.addColorStop(0,`rgba(255,200,80,${0.12+Math.sin(gt*0.1)*0.02})`);
+    glow.addColorStop(0.4,`rgba(255,150,40,0.04)`);glow.addColorStop(1,'rgba(0,0,0,0)');
+    cx.fillStyle=glow;cx.fillRect(0,0,W,H);
+  };
+})();
+
+/* ═══════════════════════════════════
+   10 · ANCIENT TREE RINGS
+   Cross-section revealing centuries
+   of growth, trauma, survival
+═══════════════════════════════════ */
+(()=>{
+  const rings2=Array.from({length:80},(_,i)=>{
+    const r=15+i*8+rnd(-3,3);
+    const dark=Math.random()<0.12;// trauma ring
+    return{r,width:rnd(0.5,3),dark,angle:rnd(-Math.PI,Math.PI),
+      hue:dark?20:30,sat:dark?40:25,light:dark?15:Math.floor(L(20,40,i/80))};
+  });
+  R[10]=(gt,st,tot)=>{
+    const cx=ctxs[10];const p=st/tot;
+    cx.fillStyle='rgba(4,2,0,0.2)';cx.fillRect(0,0,W,H);
+    const ox=W/2,oy=H/2;const reveal=ei(p);const rings3=Math.floor(reveal*rings2.length);
+    // wood grain bg
+    for(let grain=0;grain<20;grain++){
+      const gy=rnd(0,H);cx.beginPath();cx.moveTo(0,gy);cx.lineTo(W,gy+rnd(-5,5));
+      cx.strokeStyle=`rgba(30,15,5,0.04)`;cx.lineWidth=rnd(1,3);cx.stroke();
+    }
+    // rings drawn outward
+    for(let i=0;i<rings3;i++){
+      const r=rings2[i];const age=i/rings3;
+      cx.beginPath();cx.arc(ox,oy,r.r,0,Math.PI*2);
+      cx.strokeStyle=`hsl(${r.hue},${r.sat}%,${r.light}%)`;
+      cx.lineWidth=r.width*(r.dark?1.8:1);cx.stroke();
+      // traumatic rings have a slightly irregular shape
+      if(r.dark&&i<rings3){
+        cx.beginPath();cx.arc(ox+Math.cos(r.angle)*4,oy+Math.sin(r.angle)*4,r.r*0.98,r.angle-0.4,r.angle+0.4);
+        cx.strokeStyle=`rgba(10,5,0,0.25)`;cx.lineWidth=r.width*2;cx.stroke();
+      }
+    }
+    // radial medullary rays
+    for(let ray=0;ray<12;ray++){
+      const ra=(ray/12)*Math.PI*2;const maxR=rings3>0?rings2[rings3-1].r:0;
+      cx.beginPath();cx.moveTo(ox,oy);cx.lineTo(ox+Math.cos(ra)*maxR,oy+Math.sin(ra)*maxR);
+      cx.strokeStyle=`rgba(60,35,10,${reveal*0.12})`;cx.lineWidth=0.5;cx.stroke();
+    }
+    // heartwood center
+    const hw=cx.createRadialGradient(ox,oy,0,ox,oy,30);
+    hw.addColorStop(0,'rgba(80,35,10,0.8)');hw.addColorStop(1,'rgba(0,0,0,0)');
+    cx.fillStyle=hw;cx.fillRect(ox-35,oy-35,70,70);
+    cx.beginPath();cx.arc(ox,oy,5,0,Math.PI*2);cx.fillStyle='rgba(100,45,12,0.9)';cx.fill();
+    // bark edge
+    if(rings3===rings2.length){
+      const outerR=rings2[rings2.length-1].r+15;cx.beginPath();cx.arc(ox,oy,outerR,0,Math.PI*2);
+      cx.strokeStyle='rgba(25,12,4,0.5)';cx.lineWidth=8;cx.stroke();
+    }
+  };
+})();
+
+/* ═══════════════════════════════════
+   11 · WORMHOLE PASSAGE
+   Einstein-Rosen bridge visualization,
+   spacetime folding
+═══════════════════════════════════ */
+(()=>{
+  R[11]=(gt,st,tot)=>{
+    const cx=ctxs[11];const p=st/tot;
+    cx.fillStyle='rgba(0,0,0,0.18)';cx.fillRect(0,0,W,H);
+    const ox=W/2,oy=H/2;const travel=ei(p);
+
+    // tunnel rings — perspective
+    for(let ring=40;ring>=1;ring--){
+      const t2=((ring/40)+gt*0.015*travel)%1;
+      const r=t2*W*0.4+5;const depth=1-t2;
+      const hue=L(200,280,t2);
+      cx.beginPath();cx.ellipse(ox,oy,r,r*0.45,0,0,Math.PI*2);
+      cx.strokeStyle=`hsla(${hue},70%,60%,${depth*p*0.2})`;cx.lineWidth=0.8;cx.stroke();
+      // glowing edge at near rings
+      if(ring<5){
+        cx.beginPath();cx.ellipse(ox,oy,r,r*0.45,0,0,Math.PI*2);
+        cx.strokeStyle=`hsla(${hue},90%,80%,${depth*p*0.4*(5-ring)/5})`;cx.lineWidth=2;cx.stroke();
+      }
+    }
+
+    // tunnel glow
+    const tg=cx.createRadialGradient(ox,oy,0,ox,oy,W*0.3);
+    tg.addColorStop(0,`rgba(100,60,255,${travel*p*0.15})`);
+    tg.addColorStop(0.4,`rgba(60,20,200,${travel*p*0.06})`);
+    tg.addColorStop(1,'rgba(0,0,0,0)');cx.fillStyle=tg;cx.fillRect(0,0,W,H);
+
+    // star streaks (at speed)
+    for(let i=0;i<200;i++){
+      const a=(i/200)*Math.PI*2;const r=rnd(100,W*0.45);
+      const streak=travel*rnd(20,80);
+      const sx=ox+Math.cos(a)*r,sy=oy+Math.sin(a)*r*0.55;
+      const ex=ox+Math.cos(a)*(r-streak),ey=oy+Math.sin(a)*(r-streak)*0.55;
+      cx.beginPath();cx.moveTo(sx,sy);cx.lineTo(ex,ey);
+      cx.strokeStyle=`rgba(200,200,255,${travel*p*0.3*(r/W)})`;cx.lineWidth=0.5;cx.stroke();
+    }
+
+    // exit light
+    const el=cx.createRadialGradient(ox,oy,0,ox,oy,80*travel);
+    el.addColorStop(0,`rgba(255,255,255,${travel*0.8})`);
+    el.addColorStop(0.3,`rgba(200,180,255,${travel*0.3})`);
+    el.addColorStop(1,'rgba(0,0,0,0)');cx.fillStyle=el;cx.fillRect(0,0,W,H);
+  };
+})();
+
+/* ═══════════════════════════════════
+   12 · MONKS ROBE IN WIND
+   Simple cloth forms of pure color
+   billowing in steady breath-wind
+═══════════════════════════════════ */
+(()=>{
+  R[12]=(gt,st,tot)=>{
+    const cx=ctxs[12];const p=st/tot;
+    cx.fillStyle='rgba(2,4,6,0.2)';cx.fillRect(0,0,W,H);
+
+    // ground mist
+    const gm=cx.createLinearGradient(0,H*0.8,0,H);
+    gm.addColorStop(0,'rgba(0,0,0,0)');gm.addColorStop(1,'rgba(15,10,20,0.3)');
+    cx.fillStyle=gm;cx.fillRect(0,0,W,H);
+
+    // wind field — subtle horizontal lines
+    for(let i=0;i<8;i++){
+      const wy=H*0.2+i*H*0.08+Math.sin(gt*0.01+i)*5;
+      cx.beginPath();cx.moveTo(0,wy);cx.lineTo(W,wy);
+      cx.strokeStyle=`rgba(255,255,255,${0.015+Math.sin(gt*0.02+i)*0.008})`;cx.lineWidth=0.4;cx.stroke();
+    }
+
+    // three robed figures — different sizes for depth
+    const figures=[
+      {x:W*0.25,y:H*0.75,scale:0.7,hue:210,sat:20},
+      {x:W*0.52,y:H*0.82,scale:1,hue:220,sat:15},
+      {x:W*0.76,y:H*0.72,scale:0.8,hue:200,sat:25},
+    ];
+    figures.forEach(fig=>{
+      const wind=Math.sin(gt*0.025+fig.x*0.001)*0.4+Math.sin(gt*0.038+fig.x*0.002)*0.2;
+      cx.save();cx.translate(fig.x,fig.y);cx.scale(fig.scale,fig.scale);
+
+      // robe as flowing bezier shape
+      const hemSway=wind*60;const shoulderSway=wind*20;
+      cx.beginPath();
+      cx.moveTo(-25+shoulderSway,0); // left shoulder
+      cx.bezierCurveTo(-35+shoulderSway,-80,-40+wind*10,-150,-5+wind*5,-220);// left to head
+      cx.bezierCurveTo(5+wind*3,-240,15+wind*3,-240,25+wind*5,-220);// head arc
+      cx.bezierCurveTo(40+wind*10,-150,35+shoulderSway,-80,25+shoulderSway,0);// head to right shoulder
+      cx.bezierCurveTo(40+shoulderSway,100,60+hemSway,200,50+hemSway*1.2,320);// right hem
+      cx.bezierCurveTo(20+hemSway*0.8,340,0+hemSway*0.5,340,-20+hemSway*0.3,320);// hem bottom
+      cx.bezierCurveTo(-45+hemSway*0.2,200,-30+shoulderSway,100,-25+shoulderSway,0);// left hem
+      cx.closePath();
+      const robeg=cx.createLinearGradient(-50,-250,50,350);
+      robeg.addColorStop(0,`hsla(${fig.hue},${fig.sat}%,${35+p*5}%,${0.65+p*0.1})`);
+      robeg.addColorStop(0.5,`hsla(${fig.hue},${fig.sat-5}%,${25+p*4}%,0.7)`);
+      robeg.addColorStop(1,`hsla(${fig.hue},${fig.sat}%,${20+p*3}%,0.6)`);
+      cx.fillStyle=robeg;cx.fill();
+      // robe highlight
+      cx.beginPath();cx.moveTo(0,-200);cx.bezierCurveTo(-8,-150,-12,-80,-8,0);
+      cx.strokeStyle=`rgba(255,255,255,${0.06+p*0.03})`;cx.lineWidth=2;cx.stroke();
+      cx.restore();
+    });
+  };
+})();
+
+/* ═══════════════════════════════════
+   13 · TIDE PULLS THE SHORE
+   Water draws back then crashes forward,
+   patient and inevitable rhythm
+═══════════════════════════════════ */
+(()=>{
+  const foam2=Array.from({length:80},()=>({x:rnd(0,W),y:rnd(H*0.58,H*0.65),vx:(Math.random()-0.5)*0.4,vy:rnd(-0.1,0.1),sz:rnd(3,12),al:rnd(0.1,0.4),ph:Math.random()*Math.PI*2}));
+  R[13]=(gt,st,tot)=>{
+    const cx=ctxs[13];
+    cx.fillStyle='rgba(2,6,14,0.2)';cx.fillRect(0,0,W,H);
+
+    // sky — pre-dawn
+    const sky=cx.createLinearGradient(0,0,0,H*0.55);
+    sky.addColorStop(0,'rgba(5,8,25,0.2)');sky.addColorStop(0.5,'rgba(8,12,30,0.15)');sky.addColorStop(1,'rgba(15,20,45,0.1)');
+    cx.fillStyle=sky;cx.fillRect(0,0,W,H*0.55);
+
+    // stars
+    for(let i=0;i<100;i++){const sx=((i*337)%W),sy=((i*197)%(H*0.48));const tw=Math.sin(gt*0.04+i)*0.3+0.7;cx.beginPath();cx.arc(sx,sy,rnd(0.3,1.2),0,Math.PI*2);cx.fillStyle=`rgba(255,255,255,${tw*0.35})`;cx.fill();}
+
+    // tide cycle — pull back then crash
+    const cycle=(gt%360)/360;const pullback=Math.sin(cycle*Math.PI*2)*0.5+0.5;
+    const waveBase=H*0.6+pullback*H*0.04;// rises and falls
+
+    // water layers
+    for(let layer=5;layer>=0;layer--){
+      const lOff=layer*12;const lAmp=15+layer*5;const lSpd=0.012+layer*0.004;
+      cx.beginPath();cx.moveTo(0,H);
+      for(let x=0;x<=W;x+=4){
+        const wave1=Math.sin(x*0.004+gt*lSpd)*lAmp;
+        const wave2=Math.sin(x*0.009-gt*lSpd*0.8)*lAmp*0.4;
+        const tideShift=pullback*30;
+        cx.lineTo(x,waveBase+lOff+wave1+wave2-tideShift);
+      }
+      cx.lineTo(W,H);cx.closePath();
+      const shade=Math.floor(8+layer*6);
+      cx.fillStyle=`rgba(${shade},${shade+18},${shade+45},${0.65+layer*0.06})`;cx.fill();
+    }
+
+    // wave crash line
+    const crashAl=Math.max(0,Math.sin(cycle*Math.PI*2+Math.PI)*0.8);
+    if(crashAl>0.1){
+      cx.beginPath();cx.moveTo(0,waveBase);
+      for(let x=0;x<=W;x+=4){cx.lineTo(x,waveBase-5+Math.sin(x*0.008+gt*0.03)*8);}
+      cx.strokeStyle=`rgba(200,230,255,${crashAl*0.4})`;cx.lineWidth=2;cx.stroke();
+    }
+
+    // foam
+    foam2.forEach(f=>{
+      f.x+=f.vx+(pullback-0.5)*0.3;f.y+=f.vy;
+      if(f.x<0)f.x=W;if(f.x>W)f.x=0;
+      const tw=Math.sin(gt*0.06+f.ph)*0.3+0.7;
+      cx.beginPath();cx.ellipse(f.x,waveBase+rnd(-8,8),f.sz*tw,f.sz*0.4*tw,0,0,Math.PI*2);
+      cx.fillStyle=`rgba(220,240,255,${f.al*tw*crashAl})`;cx.fill();
+    });
+
+    // moonlight streak on water
+    const mr=cx.createLinearGradient(W*0.42,waveBase-20,W*0.58,H);
+    mr.addColorStop(0,'rgba(220,230,255,0)');mr.addColorStop(0.3,`rgba(200,220,255,${0.06+Math.sin(gt*0.01)*0.02})`);mr.addColorStop(1,'rgba(180,210,255,0)');
+    cx.fillStyle=mr;cx.fillRect(W*0.35,waveBase-20,W*0.3,H-waveBase+20);
+
+    // shore/sand
+    cx.beginPath();cx.moveTo(0,H*0.7);for(let x=0;x<=W;x+=6){cx.lineTo(x,H*0.7+Math.sin(x*0.006)*5);}cx.lineTo(W,H);cx.lineTo(0,H);cx.closePath();
+    cx.fillStyle='rgba(28,22,14,0.7)';cx.fill();
+  };
+})();
+
+/* ═══════════════════════════════════
+   14 · FIRST LIGHT OF DAWN
+   The most cinematic scene —
+   perfect gradual sunrise with mist,
+   birds silhouettes, crescendo glow
+═══════════════════════════════════ */
+(()=>{
+  const birds=Array.from({length:12},(_,i)=>({
+    x:rnd(-100,W*0.3),y:rnd(H*0.2,H*0.48),
+    vx:rnd(0.3,0.9),vy:(Math.random()-0.5)*0.1,
+    ph:Math.random()*Math.PI*2,wingCycle:rnd(0.08,0.15),sz:rnd(0.4,0.9)
+  }));
+  const mistLayers=Array.from({length:8},(_,i)=>({y:H*0.6+i*30,amp:20+i*10,freq:0.003+i*0.0008,ph:i*0.6,spd:0.004+i*0.001,alpha:0.08+i*0.04}));
+  R[14]=(gt,st,tot)=>{
+    const cx=ctxs[14];const p=st/tot;
+    const dawn=ei(p); // 0=night, 1=full dawn
+
+    // ── SKY — the most complex gradient, shifts through 5 color stages
+    const skyG=cx.createLinearGradient(0,0,0,H*0.65);
+    const deepNight=`rgba(${Math.floor(L(2,12,dawn))},${Math.floor(L(2,18,dawn))},${Math.floor(L(18,45,dawn))},1)`;
+    const horizon=`rgba(${Math.floor(L(5,255,dawn))},${Math.floor(L(5,L(30,160,dawn),dawn))},${Math.floor(L(15,L(20,60,dawn),dawn))},1)`;
+    const sunzone=`rgba(${Math.floor(L(8,255,Math.min(1,dawn*1.4)))},${Math.floor(L(5,L(80,200,dawn),Math.min(1,dawn*1.3)))},${Math.floor(L(20,L(10,100,dawn),Math.min(1,dawn*1.2)))},1)`;
+    skyG.addColorStop(0,deepNight);skyG.addColorStop(0.5,horizon);skyG.addColorStop(0.85,sunzone);skyG.addColorStop(1,`rgba(0,0,0,0)`);
+    cx.fillStyle=skyG;cx.fillRect(0,0,W,H*0.65);
+
+    // stars fading
+    for(let i=0;i<120;i++){const sx=((i*337)%W),sy=((i*197)%(H*0.55));const tw=Math.sin(gt*0.04+i)*0.2+0.8;cx.beginPath();cx.arc(sx,sy,rnd(0.3,1.3),0,Math.PI*2);cx.fillStyle=`rgba(255,255,255,${tw*Math.max(0,0.5-dawn*0.6)})`;cx.fill();}
+
+    // ── SUN rising from horizon
+    const sunY=H*0.62-dawn*H*0.22;const sunR=25+dawn*20;
+    // pre-sunrise horizon flush
+    const horizFlush=cx.createRadialGradient(W/2,H*0.62,0,W/2,H*0.62,W*0.45);
+    horizFlush.addColorStop(0,`rgba(255,${Math.floor(L(60,180,dawn))},${Math.floor(L(0,60,dawn))},${dawn*0.35})`);
+    horizFlush.addColorStop(0.4,`rgba(255,${Math.floor(L(30,120,dawn))},0,${dawn*0.12})`);
+    horizFlush.addColorStop(1,'rgba(0,0,0,0)');cx.fillStyle=horizFlush;cx.fillRect(0,0,W,H);
+
+    if(dawn>0.15){
+      // sun rays
+      for(let r=0;r<24;r++){
+        const ra=(r/24)*Math.PI*2+gt*0.002;const rLen=sunR+40+Math.sin(gt*0.04+r)*15;
+        const rg=cx.createLinearGradient(W/2,sunY,W/2+Math.cos(ra)*rLen,sunY+Math.sin(ra)*rLen);
+        rg.addColorStop(0,`rgba(255,${Math.floor(L(150,220,dawn))},${Math.floor(L(20,80,dawn))},${(dawn-0.15)*0.25})`);
+        rg.addColorStop(1,'rgba(0,0,0,0)');cx.strokeStyle=rg;cx.lineWidth=1.5+Math.sin(gt*0.05+r)*0.8;
+        cx.beginPath();cx.moveTo(W/2,sunY);cx.lineTo(W/2+Math.cos(ra)*rLen,sunY+Math.sin(ra)*rLen);cx.stroke();
+      }
+      const sug=cx.createRadialGradient(W/2,sunY,0,W/2,sunY,sunR*3.5);
+      sug.addColorStop(0,`rgba(255,255,${Math.floor(L(150,230,dawn))},${dawn})`);
+      sug.addColorStop(0.15,`rgba(255,${Math.floor(L(180,230,dawn))},${Math.floor(L(20,100,dawn))},${(dawn-0.15)*0.6})`);
+      sug.addColorStop(0.5,`rgba(255,${Math.floor(L(80,160,dawn))},0,${(dawn-0.15)*0.12})`);
+      sug.addColorStop(1,'rgba(0,0,0,0)');cx.fillStyle=sug;cx.fillRect(0,0,W,H);
+      cx.beginPath();cx.arc(W/2,sunY,sunR,0,Math.PI*2);cx.fillStyle=`rgba(255,255,${Math.floor(L(180,240,dawn))},${Math.min(1,dawn*1.5)})`;cx.fill();
+    }
+
+    // ── MOUNTAIN SILHOUETTES — 3 layers for depth
+    const mLayers=[
+      {pts:[0,.06,.14,.22,.3,.4,.5,.58,.67,.76,.84,.92,1],hs:[.72,.55,.65,.5,.6,.68,.52,.62,.58,.65,.55,.68,.72],shade:'12,14,22',al:0.95},
+      {pts:[0,.08,.18,.28,.38,.5,.6,.7,.8,.9,1],hs:[.78,.65,.72,.6,.68,.74,.62,.7,.66,.72,.78],shade:'8,10,18',al:0.85},
+      {pts:[0,.12,.25,.38,.5,.62,.75,.88,1],hs:[.83,.72,.78,.68,.74,.7,.76,.73,.83],shade:'5,6,12',al:0.75},
+    ];
+    mLayers.forEach(ml=>{
+      cx.beginPath();cx.moveTo(0,H);
+      ml.pts.forEach((x,i)=>cx.lineTo(x*W,ml.hs[i]*H));
+      cx.lineTo(W,H);cx.closePath();
+      cx.fillStyle=`rgba(${ml.shade},${ml.al})`;cx.fill();
+    });
+
+    // ── MIST in valleys
+    mistLayers.forEach(m=>{
+      cx.beginPath();cx.moveTo(0,H);
+      for(let x=0;x<=W;x+=5){cx.lineTo(x,m.y+Math.sin(x*m.freq+gt*m.spd+m.ph)*m.amp);}
+      cx.lineTo(W,H);cx.closePath();
+      cx.fillStyle=`rgba(${Math.floor(L(180,220,dawn))},${Math.floor(L(185,225,dawn))},${Math.floor(L(200,240,dawn))},${m.alpha*dawn*0.8})`;cx.fill();
+    });
+
+    // ── BIRDS in silhouette
+    if(dawn>0.3){birds.forEach(b=>{
+      b.x+=b.vx*(dawn*0.8+0.2);b.y+=b.vy+Math.sin(gt*0.02+b.ph)*0.15;
+      if(b.x>W+80)b.x=-40;
+      const wing=Math.sin(gt*b.wingCycle)*0.7;
+      cx.save();cx.translate(b.x,b.y);cx.scale(b.sz,b.sz);
+      // body
+      cx.beginPath();cx.ellipse(0,0,8,3,0,0,Math.PI*2);cx.fillStyle=`rgba(5,5,10,${(dawn-0.3)*1.3})`;cx.fill();
+      // wings
+      cx.beginPath();cx.moveTo(-8,0);cx.quadraticCurveTo(-18,wing*12,-28,wing*8);cx.moveTo(8,0);cx.quadraticCurveTo(18,wing*12,28,wing*8);
+      cx.strokeStyle=`rgba(5,5,10,${(dawn-0.3)*1.3})`;cx.lineWidth=2;cx.stroke();
+      cx.restore();
+    });}
+
+    // ── GROUND foreground (darkest, clearest)
+    cx.beginPath();cx.moveTo(0,H);
+    for(let x=0;x<=W;x+=8){cx.lineTo(x,H*0.88+Math.sin(x*0.004)*8);}
+    cx.lineTo(W,H);cx.closePath();cx.fillStyle='rgba(2,2,5,0.95)';cx.fill();
+
+    // ── Final golden bloom when fully risen
+    if(dawn>0.8){
+      const gb=cx.createRadialGradient(W/2,sunY,sunR,W/2,sunY,W*0.5);
+      gb.addColorStop(0,'rgba(255,220,100,0)');
+      gb.addColorStop(0.1,`rgba(255,200,80,${(dawn-0.8)*0.12})`);
+      gb.addColorStop(1,'rgba(0,0,0,0)');cx.fillStyle=gb;cx.fillRect(0,0,W,H);
+    }
+  };
+})();
+
+goTo(0);
+document.getElementById('scene-name').textContent=SCENES[0].name;
+masterLoop();
+</script>
+</body>
+</html>

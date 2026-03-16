@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Stoicism — 50 Lessons to Become Unshakable • 21 Cinematic Scenes</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            background: #000;
+            overflow: hidden;
+            font-family: 'Georgia', serif;
+        }
+
+        #stage {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 110px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+        }
+
+        #wrapper {
+            position: relative;
+            transform-origin: center center;
+        }
+
+        #wrapper canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 1920px;
+            height: 1080px;
+            display: none;
+        }
+
+        #wrapper canvas.active {
+            display: block;
+        }
+
+        #panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 110px;
+            background: rgba(2, 2, 4, 0.98);
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            display: flex;
+            flex-direction: column;
+            padding: 0 20px;
+            backdrop-filter: blur(20px);
+        }
+
+        #progress-wrap {
+            height: 3px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            position: relative;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        #progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #e8b86d, #f0d080, #c8903a);
+            width: 0%;
+            transition: width 0.25s linear;
+            position: relative;
+        }
+
+        #progress-fill::after {
+            content: '';
+            position: absolute;
+            right: -5px;
+            top: -4px;
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+            background: #e8b86d;
+            box-shadow: 0 0 12px #e8b86d88;
+        }
+
+        #controls {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 8px 0 4px;
+            flex-shrink: 0;
+        }
+
+        #playbtn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: 1px solid rgba(232, 184, 109, 0.45);
+            background: rgba(232, 184, 109, 0.07);
+            color: #e8b86d;
+            font-size: 17px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all .2s;
+            flex-shrink: 0;
+        }
+
+        #playbtn:hover {
+            background: rgba(232, 184, 109, 0.18);
+            border-color: #e8b86d;
+        }
+
+        .navbtn {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: transparent;
+            color: rgba(255, 255, 255, 0.45);
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all .2s;
+            flex-shrink: 0;
+        }
+
+        .navbtn:hover {
+            border-color: rgba(255, 255, 255, 0.3);
+            color: #fff;
+        }
+
+        #scene-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            margin-right: auto;
+        }
+
+        #scene-name {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.82);
+            letter-spacing: .04em;
+        }
+
+        #scene-sub {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.22);
+            letter-spacing: .1em;
+            text-transform: uppercase;
+        }
+
+        #timer-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        #timer-display {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.3);
+            letter-spacing: .08em;
+            font-variant-numeric: tabular-nums;
+        }
+
+        #speed-btn {
+            padding: 4px 11px;
+            border-radius: 3px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: transparent;
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 11px;
+            cursor: pointer;
+            transition: all .2s;
+        }
+
+        #speed-btn:hover {
+            border-color: rgba(255, 255, 255, 0.28);
+            color: rgba(255, 255, 255, 0.65);
+        }
+
+        #strip-wrap {
+            overflow-x: auto;
+            flex: 1;
+            padding: 5px 0 8px;
+            scrollbar-width: none;
+        }
+
+        #strip-wrap::-webkit-scrollbar {
+            display: none;
+        }
+
+        #strip {
+            display: flex;
+            gap: 7px;
+            align-items: center;
+            min-width: max-content;
+        }
+
+        .thumb {
+            flex-shrink: 0;
+            width: 90px;
+            height: 42px;
+            border-radius: 5px;
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            background: rgba(255, 255, 255, 0.03);
+            cursor: pointer;
+            transition: all .15s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .thumb:hover {
+            border-color: rgba(255, 255, 255, 0.22);
+            background: rgba(255, 255, 255, 0.07);
+        }
+
+        .thumb.active {
+            border-color: #e8b86d;
+            background: rgba(232, 184, 109, 0.08);
+        }
+
+        .thumb .tnum {
+            font-size: 9px;
+            color: rgba(255, 255, 255, 0.2);
+            letter-spacing: .08em;
+        }
+
+        .thumb .tname {
+            font-size: 9px;
+            color: rgba(255, 255, 255, 0.5);
+            text-align: center;
+            line-height: 1.25;
+            padding: 0 5px;
+        }
+
+        .thumb.active .tname {
+            color: #e8b86d;
+        }
+
+        .thumb .tbar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #e8b86d, #f0d080);
+            width: 0%;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="stage">
+        <div id="wrapper"></div>
+    </div>
+    <div id="panel">
+        <div id="progress-wrap" onclick="seekClick(event)">
+            <div id="progress-fill"></div>
+        </div>
+        <div id="controls">
+            <button class="navbtn" onclick="prev()">&#9664;</button>
+            <button id="playbtn" onclick="togglePlay()">&#9654;</button>
+            <button class="navbtn" onclick="next()">&#9654;&#9654;</button>
+            <div id="scene-info">
+                <div id="scene-name">Loading…</div>
+                <div id="scene-sub">50 Stoic Lessons • 21 Cinematic Scenes</div>
+            </div>
+            <div id="timer-wrap">
+                <div id="timer-display">0:00 / 0:00</div>
+                <button id="speed-btn" onclick="cycleSpeed()">1×</button>
+            </div>
+        </div>
+        <div id="strip-wrap">
+            <div id="strip"></div>
+        </div>
+    </div>
+
+    <script>
+        const W = 1920, H = 1080;
+        const SCENES = [
+            { name: "Modern Stress & Overload", sub: "Layoffs · Boss · Prices · Comparison", dur: 150 },
+            { name: "How Do You Stay Calm?", sub: "The central question", dur: 120 },
+            { name: "Most People Break", sub: "Panic · Explode · Spiral", dur: 140 },
+            { name: "The Three Stoic Masters", sub: "Marcus · Seneca · Epictetus", dur: 160 },
+            { name: "You Cannot Control the World", sub: "But you can control yourself", dur: 130 },
+            { name: "Lesson 1 – Control What Matters", sub: "Epictetus + email shock", dur: 110 },
+            { name: "The Mind Is Your Fortress", sub: "Power over mind – not events", dur: 100 },
+            { name: "Dealing with Criticism", sub: "Toxic people & insults", dur: 140 },
+            { name: "Obstacle Becomes the Path", sub: "Marcus Aurelius famous line", dur: 120 },
+            { name: "Detach from the Future", sub: "Seneca on future anxiety", dur: 130 },
+            { name: "Become Unshakable", sub: "Final challenge & sunrise", dur: 180 },
+
+            // Ambient / cinematic
+            { name: "Storm Eye Stillness", sub: "Chaos swirls – center holds", dur: 240 },
+            { name: "Golden Fortress Rising", sub: "Inner strength expands", dur: 220 },
+            { name: "Lotus Through Mud", sub: "Purity rises from difficulty", dur: 200 },
+            { name: "Hourglass Patient Descent", sub: "Grains accept the fall", dur: 180 },
+            { name: "Iron Being Tempered", sub: "Pressure forges resilience", dur: 210 },
+            { name: "Wind Canyon Sculpting", sub: "Patient breath shapes stone", dur: 230 },
+            { name: "Eternal Orbit Return", sub: "Cycles without regret", dur: 190 },
+            { name: "Ember to Controlled Flame", sub: "Passion becomes steady power", dur: 200 },
+            { name: "Mirror Cave Reflection", sub: "Stillness shows truth", dur: 220 },
+            { name: "Phoenix Quiet Rebirth", sub: "Renewal in silence", dur: 240 }
+        ];
+
+        const SPEEDS = [1, 1.5, 2, 0.5];
+        let speedIdx = 0, cur = 0, playing = false, sT = 0, frameT = 0;
+        const FPS = 60;
+        const ctxs = [];
+
+        const wrapper = document.getElementById('wrapper');
+        wrapper.style.width = W + 'px'; wrapper.style.height = H + 'px';
+        for (let i = 0; i < SCENES.length; i++) {
+            const c = document.createElement('canvas');
+            c.width = W; c.height = H; c.id = 'cv' + i;
+            wrapper.appendChild(c); ctxs.push(c.getContext('2d'));
+        }
+
+        function scaleStage() {
+            const st = document.getElementById('stage');
+            const s = Math.min(st.clientWidth / W, st.clientHeight / H);
+            wrapper.style.transform = `scale(${s})`;
+            wrapper.style.marginLeft = ((st.clientWidth - W * s) / 2) + 'px';
+            wrapper.style.marginTop = ((st.clientHeight - H * s) / 2) + 'px';
+        }
+        window.addEventListener('resize', scaleStage); scaleStage();
+
+        const strip = document.getElementById('strip');
+        SCENES.forEach((sc, i) => {
+            const d = document.createElement('div');
+            d.className = 'thumb' + (i === 0 ? ' active' : ''); d.id = 'th' + i;
+            d.innerHTML = `<div class="tnum">${String(i + 1).padStart(2, '0')}</div><div class="tname">${sc.name}</div><div class="tbar" id="tb${i}"></div>`;
+            d.onclick = () => goTo(i); strip.appendChild(d);
+        });
+
+        function goTo(i) {
+            document.getElementById('cv' + cur).classList.remove('active');
+            document.getElementById('th' + cur).classList.remove('active');
+            document.getElementById('tb' + cur).style.width = '0%';
+            cur = i; sT = 0;
+            document.getElementById('cv' + i).classList.add('active');
+            document.getElementById('th' + i).classList.add('active');
+            document.getElementById('scene-name').textContent = SCENES[i].name;
+            document.getElementById('th' + i).scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        }
+        function prev() { if (cur > 0) goTo(cur - 1); }
+        function next() { if (cur < SCENES.length - 1) goTo(cur + 1); }
+        function togglePlay() { playing = !playing; document.getElementById('playbtn').innerHTML = playing ? '&#9646;&#9646;' : '&#9654;'; }
+        function cycleSpeed() { speedIdx = (speedIdx + 1) % SPEEDS.length; document.getElementById('speed-btn').textContent = SPEEDS[speedIdx] + '×'; }
+        function seekClick(e) {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const pct = (e.clientX - rect.left) / rect.width;
+            const tot = SCENES.reduce((a, s) => a + s.dur, 0);
+            let acc = 0, tgt = pct * tot;
+            for (let i = 0; i < SCENES.length; i++) {
+                if (acc + SCENES[i].dur >= tgt) {
+                    goTo(i);
+                    sT = Math.floor((tgt - acc) * FPS / SPEEDS[speedIdx]);
+                    break;
+                }
+                acc += SCENES[i].dur;
+            }
+        }
+        function fmt(s) { const m = Math.floor(s / 60); return m + ':' + (s % 60 < 10 ? '0' : '') + s % 60; }
+
+        function masterLoop() {
+            requestAnimationFrame(masterLoop); frameT++;
+            const sc = SCENES[cur]; const tot = sc.dur * FPS / SPEEDS[speedIdx];
+            if (playing) { sT++; if (sT >= tot) { if (cur < SCENES.length - 1) goTo(cur + 1); else { playing = false; document.getElementById('playbtn').innerHTML = '&#9654;'; } } }
+            R[cur](frameT, sT, tot);
+            const pct = Math.min(1, sT / tot) * 100;
+            document.getElementById('tb' + cur).style.width = pct + '%';
+            const el = Math.floor(sT / FPS * SPEEDS[speedIdx]);
+            document.getElementById('timer-display').textContent = fmt(el) + ' / ' + fmt(sc.dur);
+            const totD = SCENES.reduce((a, s) => a + s.dur, 0);
+            const doneD = SCENES.slice(0, cur).reduce((a, s) => a + s.dur, 0) + el;
+            document.getElementById('progress-fill').style.width = (doneD / totD * 100) + '%';
+        }
+
+        const L = (a, b, t) => a + (b - a) * t;
+        const rnd = (a, b) => a + Math.random() * (b - a);
+        const ei = (t) => t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        const R = [];
+
+        // ────────────────────────────────────────────────
+        // 0 – Modern Stress & Overload (intro chaos)
+        // ────────────────────────────────────────────────
+        R[0] = (gt, st, tot) => {
+            const cx = ctxs[0]; const p = ei(st / tot);
+            cx.fillStyle = 'rgba(4,2,8,0.28)'; cx.fillRect(0, 0, W, H);
+            // red anxiety pulses
+            for (let i = 0; i < 18; i++) {
+                const r = 80 + i * 35 + Math.sin(gt * 0.04 + i * 1.2) * 20;
+                cx.beginPath(); cx.arc(W / 2, H / 2, r, 0, Math.PI * 2);
+                cx.strokeStyle = `rgba(220,40,60,${0.35 * (1 - p) * Math.sin(gt * 0.07 + i)})`;
+                cx.lineWidth = 2.5; cx.stroke();
+            }
+            // scrolling social media feel – small white rectangles
+            for (let i = 0; i < 60; i++) {
+                const y = (gt * 0.8 + i * 18) % (H + 40) - 40;
+                cx.fillStyle = `rgba(255,255,255,${0.08 + Math.sin(gt * 0.03 + i) * 0.04})`;
+                cx.fillRect(W * 0.1 + Math.sin(i) * 40, y, Math.random() * 180 + 60, 90);
+            }
+        };
+
+        // ────────────────────────────────────────────────
+        // 1 – How Do You Stay Calm? (central question)
+        // ────────────────────────────────────────────────
+        R[1] = (gt, st, tot) => {
+            const cx = ctxs[1]; const p = ei(st / tot);
+            cx.fillStyle = 'rgba(0,4,18,0.25)'; cx.fillRect(0, 0, W, H);
+            const calmR = 100 + p * 220;
+            const g = cx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, calmR);
+            g.addColorStop(0, 'rgba(255,240,180,0.45)');
+            g.addColorStop(1, 'rgba(0,0,0,0)');
+            cx.fillStyle = g; cx.fillRect(0, 0, W, H);
+            cx.font = 'bold 180px Georgia'; cx.fillStyle = `rgba(232,184,109,${0.7 * p})`;
+            cx.fillText('?', W / 2 - 80, H * 0.58);
+        };
+
+        // ────────────────────────────────────────────────
+        // 2 – Most People Break
+        // ────────────────────────────────────────────────
+        R[2] = (gt, st, tot) => {
+            const cx = ctxs[2]; const p = ei(st / tot);
+            cx.fillStyle = 'rgba(12,2,2,0.3)'; cx.fillRect(0, 0, W, H);
+            for (let i = 0; i < 420; i++) {
+                const x = rnd(0, W), y = rnd(0, H);
+                const d = Math.hypot(x - W / 2, y - H / 2) / 800;
+                cx.fillStyle = `rgba(255,${Math.floor(60 + 140 * p)},40,${0.7 * (1 - d)})`;
+                cx.fillRect(x, y, 3, 3);
+            }
+        };
+
+        // ────────────────────────────────────────────────
+        // 3 – The Three Stoic Masters
+        // ────────────────────────────────────────────────
+        R[3] = (gt, st, tot) => {
+            const cx = ctxs[3]; const p = ei(st / tot);
+            cx.fillStyle = 'rgba(2,6,12,0.22)'; cx.fillRect(0, 0, W, H);
+            const positions = [[W * 0.3, H * 0.55], [W * 0.5, H * 0.48], [W * 0.7, H * 0.52]];
+            positions.forEach((pos, i) => {
+                const h = 120 + p * 80 * Math.sin(gt * 0.3 + i * 2);
+                cx.fillStyle = `rgba(210,190,140,${0.8 * p})`;
+                cx.fillRect(pos[0] - 40, pos[1] - h / 2, 80, h);
+            });
+            cx.fillStyle = `rgba(255,220,140,${p * 0.9})`;
+            cx.font = 'bold 68px Georgia';
+            cx.fillText('M   S   E', W * 0.38, H * 0.8);
+        };
+
+        // ────────────────────────────────────────────────
+        // 4 – You Cannot Control the World
+        // ────────────────────────────────────────────────
+        R[4] = (gt, st, tot) => {
+            const cx = ctxs[4]; const p = ei(st / tot);
+            cx.fillStyle = 'rgba(0,0,8,0.25)'; cx.fillRect(0, 0, W, H);
+            const fortR = 80 + p * 300;
+            const g = cx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, fortR);
+            g.addColorStop(0, 'rgba(232,184,109,0.85)');
+            g.addColorStop(0.7, 'rgba(100,60,20,0.4)');
+            g.addColorStop(1, 'rgba(0,0,0,0)');
+            cx.fillStyle = g; cx.fillRect(0, 0, W, H);
+        };
+
+        // ────────────────────────────────────────────────
+        // 5 – Lesson 1 – Control What Matters (email shock)
+        // ────────────────────────────────────────────────
+        R[5] = (gt, st, tot) => {
+            const cx = ctxs[5]; const p = ei(st / tot);
+            cx.fillStyle = 'rgba(0,0,0,0.25)'; cx.fillRect(0, 0, W, H);
+            cx.fillStyle = 'rgba(30,30,35,0.95)'; cx.fillRect(W * 0.28, H * 0.32, W * 0.44, H * 0.48);
+            cx.fillStyle = 'rgba(10,10,12,1)'; cx.fillRect(W * 0.32, H * 0.38, W * 0.36, H * 0.35);
+            const alertY = H * 0.42 + Math.sin(gt * 0.12) * 4;
+            cx.fillStyle = `rgba(255,60,60,${0.96 * (1 - p * 0.4)})`; cx.fillRect(W * 0.38, alertY, W * 0.24, 110);
+            cx.fillStyle = '#fff'; cx.font = 'bold 42px Georgia'; cx.fillText('✉', W * 0.42, alertY + 68);
+            cx.font = '22px Georgia'; cx.fillStyle = '#000'; cx.fillText('Role eliminated', W * 0.47, alertY + 92);
+            const coreR = 60 + p * 140;
+            const cg = cx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, coreR * 1.8);
+            cg.addColorStop(0, 'rgba(232,184,109,0.9)');
+            cg.addColorStop(1, 'rgba(0,0,0,0)');
+            cx.fillStyle = cg; cx.fillRect(0, 0, W, H);
+        };
+
+        // ────────────────────────────────────────────────
+        // 6 – The Mind Is Your Fortress
+        // ────────────────────────────────────────────────
+        R[6] = (gt, st, tot) => {
+            const cx = ctxs[6]; const p = ei(st / tot);
+            cx.fillStyle = 'rgba(8,7,4,0.25)'; cx.fillRect(0, 0, W, H);
+            cx.fillStyle = 'rgba(55,48,38,0.92)'; cx.fillRect(W * 0.18, H * 0.22, W * 0.64, H * 0.68);
+            const inner = cx.createRadialGradient(W / 2, H * 0.55, 30, W / 2, H * 0.55, 280);
+            inner.addColorStop(0, `rgba(255,245,180,${p * 0.95})`);
+            inner.addColorStop(1, 'rgba(0,0,0,0)');
+            cx.fillStyle = inner; cx.fillRect(0, 0, W, H);
+        };
+
+        // ────────────────────────────────────────────────
+        // 7 – Dealing with Criticism
+        // ────────────────────────────────────────────────
+        R[7] = (gt, st, tot) => {
+            const cx = ctxs[7]; const p = ei(st / tot);
+            cx.fillStyle = 'rgba(4,6,14,0.22)'; cx.fillRect(0, 0, W, H);
+            cx.fillStyle = 'rgba(45,38,28,0.9)'; cx.fillRect(W * 0.15, H * 0.65, W * 0.7, H * 0.22);
+            cx.fillStyle = 'rgba(220,210,180,0.95)'; cx.fillRect(W * 0.48, H * 0.45, 44, 110);
+            if (Math.random() < 0.14) {
+                const x = rnd(W * 0.2, W * 0.45);
+                cx.fillStyle = 'rgba(255,70,60,0.7)'; cx.fillRect(x, H * 0.35, 140, 60);
+            }
+        };
+
+        // ────────────────────────────────────────────────
+        // 8 – Obstacle Becomes the Path
+        // ────────────────────────────────────────────────
+        R[8] = (gt, st, tot) => {
+            const cx = ctxs[8]; const p = ei(st / tot);
+            cx.fillStyle = 'rgba(6,4,2,0.22)'; cx.fillRect(0, 0, W, H);
+            const rockX = W * 0.5 + Math.sin(gt * 0.06) * 30;
+            cx.beginPath(); cx.arc(rockX, H * 0.6, 80, 0, Math.PI * 2);
+            cx.fillStyle = 'rgba(80,70,55,0.95)'; cx.fill();
+            // path emerging
+            cx.beginPath(); cx.moveTo(0, H * 0.82);
+            for (let x = 0; x <= W; x += 12) {
+                cx.lineTo(x, H * 0.82 + Math.sin(x * 0.008 + gt * 0.02) * 20 * p);
+            }
+            cx.lineTo(W, H); cx.lineTo(0, H); cx.closePath();
+            cx.fillStyle = 'rgba(120,100,70,0.88)'; cx.fill();
+        };
+
+        // ────────────────────────────────────────────────
+        // 9 – Detach from the Future
+        // ────────────────────────────────────────────────
+        R[9] = (gt, st, tot) => {
+            const cx = ctxs[9]; const p = ei(st / tot);
+            cx.fillStyle = 'rgba(2,8,18,0.22)'; cx.fillRect(0, 0, W, H);
+            for (let i = 0; i < 8; i++) {
+                const y = H * 0.3 + i * 60;
+                cx.beginPath(); cx.moveTo(0, y);
+                for (let x = 0; x <= W; x += 8) {
+                    cx.lineTo(x, y + Math.sin(x * 0.005 + gt * 0.009 + i) * 35 * (1 - p));
+                }
+                cx.lineTo(W, H); cx.lineTo(0, H); cx.closePath();
+                cx.fillStyle = `rgba(40,${80 + i * 10},120,${0.4 + 0.1 * p})`; cx.fill();
+            }
+        };
+
+        // ────────────────────────────────────────────────
+        // 10 – Become Unshakable (finale)
+        // ────────────────────────────────────────────────
+        R[10] = (gt, st, tot) => {
+            const cx = ctxs[10]; const p = ei(st / tot);
+            cx.fillStyle = 'rgba(2,2,8,0.22)'; cx.fillRect(0, 0, W, H);
+            const sunY = H * 0.65 - p * H * 0.35;
+            const sunR = 40 + p * 80;
+            const g = cx.createRadialGradient(W / 2, sunY, 0, W / 2, sunY, sunR * 4);
+            g.addColorStop(0, 'rgba(255,220,100,0.95)');
+            g.addColorStop(0.4, 'rgba(255,180,60,0.6)');
+            g.addColorStop(1, 'rgba(0,0,0,0)');
+            cx.fillStyle = g; cx.fillRect(0, 0, W, H);
+            cx.beginPath(); cx.arc(W / 2, sunY, sunR, 0, Math.PI * 2);
+            cx.fillStyle = 'rgba(255,240,140,1)'; cx.fill();
+        };
+
+        // ────────────────────────────────────────────────
+        // Ambient scenes (11–20)
+        // ────────────────────────────────────────────────
+
+        // 11 – Storm Eye Stillness
+        R[11] = (gt, st, tot) => {
+            const cx = ctxs[11]; const p = ei(st / tot);
+            cx.fillStyle = 'rgba(0,0,8,0.25)'; cx.fillRect(0, 0, W, H);
+            const eyeR = 120 + p * 60;
+            for (let i = 0; i < 360; i += 6) {
+                const a = i * Math.PI / 180 + gt * 0.008;
+                const r = eyeR + Math.sin(a * 8 + gt * 0.03) * 40;
+                const x = W / 2 + Math.cos(a) * r;
+                const y = H / 2 + Math.sin(a) * r * 0.6;
+                cx.fillStyle = 'rgba(35,45,65,0.65)'; cx.fillRect(x, y, 3, 6);
+            }
+            const calm = cx.createRadialGradient(W / 2, H / 2, eyeR, W / 2, H / 2, eyeR + 300);
+            calm.addColorStop(0, 'rgba(200,220,255,0.12)'); calm.addColorStop(1, 'rgba(0,0,0,0)');
+            cx.fillStyle = calm; cx.fillRect(0, 0, W, H);
+        };
+
+        // 12 – Golden Fortress Rising
+        R[12] = (gt, st, tot) => {
+            const cx = ctxs[12]; const p = ei(st / tot);
+            cx.fillStyle = 'rgba(4,4,12,0.22)'; cx.fillRect(0, 0, W, H);
+            const h = 200 + p * 400;
+            cx.fillStyle = 'rgba(55,48,38,0.9)'; cx.fillRect(W * 0.2, H - h, W * 0.6, h);
+            const glow = cx.createRadialGradient(W / 2, H * 0.45, 40, W / 2, H * 0.45, 320);
+            glow.addColorStop(0, 'rgba(255,240,180,0.8)'); glow.addColorStop(1, 'rgba(0,0,0,0)');
+            cx.fillStyle = glow; cx.fillRect(0, 0, W, H);
+        };
+
+        // 13 – Lotus Through Mud
+        R[13] = (gt, st, tot) => {
+            const cx = ctxs[13]; const p = ei(st / tot);
+            cx.fillStyle = 'rgba(4,10,6,0.22)'; cx.fillRect(0, 0, W, H);
+            const lotusY = H * 0.68;
+            for (let i = 0; i < 12; i++) {
+                const a = i * Math.PI * 2 / 12 + gt * 0.004;
+                const sway = Math.sin(gt * 0.022 + a) * 8;
+                cx.save(); cx.translate(W / 2 + sway * 0.8, lotusY); cx.rotate(a + sway * 0.01);
+                cx.beginPath(); cx.ellipse(0, -50, 32, 78, 0, 0, Math.PI * 2);
+                cx.fillStyle = `hsla(200,65%,${L(70, 94, p)}%,0.88)`; cx.fill();
+                cx.restore();
+            }
+            cx.beginPath(); cx.arc(W / 2, lotusY - 28, 28, 0, Math.PI * 2);
+            cx.fillStyle = 'rgba(255,250,200,0.96)'; cx.fill();
+        };
+
+        // 14 – Hourglass Patient Descent
+        R[14] = (gt, st, tot) => {
+            const cx = ctxs[14]; const p = ei(st / tot);
+            cx.fillStyle = 'rgba(6,4,2,0.2)'; cx.fillRect(0, 0, W, H);
+            cx.beginPath(); cx.moveTo(W * 0.46, H * 0.18); cx.lineTo(W * 0.54, H * 0.18);
+            cx.lineTo(W * 0.5, H * 0.78); cx.lineTo(W * 0.46, H * 0.18);
+            cx.fillStyle = 'rgba(110,85,55,0.9)'; cx.fill();
+            for (let i = 0; i < 480; i++) {
+                const x = W * 0.48 + rnd(-30, 30);
+                const y = H * 0.22 + p * (H * 0.56) + Math.sin(gt * 0.02 + i) * 4;
+                cx.fillStyle = 'rgba(245,225,160,0.85)'; cx.fillRect(x, y, 3, 3);
+            }
+        };
+
+        // 15 – Iron Being Tempered
+        R[15] = (gt, st, tot) => {
+            const cx = ctxs[15]; const p = ei(st / tot);
+            cx.fillStyle = 'rgba(18,3,0,0.25)'; cx.fillRect(0, 0, W, H);
+            const glow = cx.createRadialGradient(W / 2, H * 0.6, 0, W / 2, H * 0.6, 280);
+            glow.addColorStop(0, `rgba(255,${L(110, 40, p)},10,${0.9 - p * 0.5})`);
+            glow.addColorStop(1, 'rgba(0,0,0,0)');
+            cx.fillStyle = glow; cx.fillRect(0, 0, W, H);
+            cx.fillStyle = 'rgba(80,60,40,0.92)'; cx.fillRect(W * 0.3, H * 0.5, W * 0.4, 120);
+        };
+
+        // 16 – Wind Canyon Sculpting
+        R[16] = (gt, st, tot) => {
+            const cx = ctxs[16]; const p = ei(st / tot);
+            cx.fillStyle = 'rgba(14,10,6,0.2)'; cx.fillRect(0, 0, W, H);
+            for (let i = 0; i < 7; i++) {
+                const y = H * 0.35 + i * 55;
+                cx.beginPath(); cx.moveTo(0, y);
+                for (let x = 0; x <= W; x += 6) {
+                    cx.lineTo(x, y + Math.sin(x * 0.003 + gt * 0.011 + i) * 30 * (1 - i * 0.07));
+                }
+                cx.lineTo(W, H); cx.lineTo(0, H); cx.closePath();
+                cx.fillStyle = `rgba(${24 + i * 6},${18 + i * 4},${10},0.88)`; cx.fill();
+            }
+        };
+
+        // 17 – Eternal Orbit Return
+        R[17] = (gt, st, tot) => {
+            const cx = ctxs[17]; const p = ei(st / tot);
+            cx.fillStyle = 'rgba(0,0,4,0.2)'; cx.fillRect(0, 0, W, H);
+            for (let i = 0; i < 220; i++) {
+                const a = gt * 0.004 + i * 0.028;
+                const r = 140 + Math.sin(a * 5) * 80;
+                const x = W / 2 + Math.cos(a) * r;
+                const y = H / 2 + Math.sin(a) * r * 0.6;
+                cx.fillStyle = 'rgba(255,255,245,0.75)'; cx.fillRect(x, y, 2, 2);
+            }
+            const core = cx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, 110);
+            core.addColorStop(0, 'rgba(255,240,180,0.9)'); core.addColorStop(1, 'rgba(0,0,0,0)');
+            cx.fillStyle = core; cx.fillRect(0, 0, W, H);
+        };
+
+        // 18 – Ember to Controlled Flame
+        R[18] = (gt, st, tot) => {
+            const cx = ctxs[18]; const p = ei(st / tot);
+            cx.fillStyle = 'rgba(8,3,0,0.18)'; cx.fillRect(0, 0, W, H);
+            const fire = cx.createRadialGradient(W / 2, H * 0.65, 0, W / 2, H * 0.55, 320);
+            fire.addColorStop(0, `rgba(255,${L(90, 220, p)},40,${0.9})`);
+            fire.addColorStop(1, 'rgba(0,0,0,0)');
+            cx.fillStyle = fire; cx.fillRect(0, 0, W, H);
+        };
+
+        // 19 – Mirror Cave Reflection
+        R[19] = (gt, st, tot) => {
+            const cx = ctxs[19]; const p = ei(st / tot);
+            cx.fillStyle = 'rgba(0,8,18,0.25)'; cx.fillRect(0, 0, W, H);
+            cx.beginPath(); cx.moveTo(0, H * 0.5);
+            for (let x = 0; x <= W; x += 8) {
+                cx.lineTo(x, H * 0.5 + Math.sin(x * 0.006 + gt * 0.008) * 40);
+            }
+            cx.lineTo(W, H); cx.lineTo(0, H); cx.closePath();
+            cx.fillStyle = `rgba(180,230,255,${0.35 * p})`; cx.fill();
+        };
+
+        // 20 – Phoenix Quiet Rebirth
+        R[20] = (gt, st, tot) => {
+            const cx = ctxs[20]; const p = ei(st / tot);
+            cx.fillStyle = 'rgba(8,3,0,0.18)'; cx.fillRect(0, 0, W, H);
+            const fire = cx.createRadialGradient(W / 2, H * 0.65, 0, W / 2, H * 0.55, 280 * (1 + p * 0.6));
+            fire.addColorStop(0, `rgba(255,${L(80, 220, p)},40,${p * 0.9})`);
+            fire.addColorStop(1, 'rgba(0,0,0,0)');
+            cx.fillStyle = fire; cx.fillRect(0, 0, W, H);
+        };
+
+        goTo(0);
+        document.getElementById('scene-name').textContent = SCENES[0].name;
+        masterLoop();
+    </script>
+</body>
+
+</html>

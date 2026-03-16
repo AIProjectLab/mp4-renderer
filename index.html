@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MP4 Renderer — Stoic Visual Engine</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/mp4-muxer/build/mp4-muxer.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app-shell">
+
+    <!-- ── Top Bar Header ──────────────────────────────────────── -->
+    <header class="app-header">
+        <div class="badge">⚡ WebCodecs · GPU</div>
+        <h1>MP4 Renderer</h1>
+        <p>Canvas animation → YouTube-ready H.264</p>
+        <div class="tech-pills">
+            <span class="tech-pill">WebCodecs</span>
+            <span class="tech-pill">mp4-muxer</span>
+            <span class="tech-pill">Groq Whisper</span>
+            <span class="tech-pill">1080p H.264</span>
+            <span class="tech-pill">100% Offline</span>
+        </div>
+    </header>
+
+    <!-- ── Two-column body ─────────────────────────────────────── -->
+    <div class="app-body">
+
+        <!-- ═══ LEFT SIDEBAR ═══════════════════════════════════ -->
+        <div class="sidebar">
+
+            <!-- Step 1 · Scene File -->
+            <div class="step" id="step1">
+                <div class="step-header">
+                    <div class="step-num">1</div>
+                    <div>
+                        <div class="step-title">Scene File</div>
+                        <div class="step-subtitle">Upload animation HTML</div>
+                    </div>
+                    <div class="step-status" id="s1status">Waiting</div>
+                </div>
+                <div class="step-body">
+                    <div class="drop-zone" id="htmlDrop">
+                        <input type="file" id="htmlFile" accept=".html">
+                        <div class="dz-icon">🎬</div>
+                        <div class="dz-label">Drop HTML or click to browse</div>
+                        <div class="dz-hint">.html · stoicism_30scenes.html etc.</div>
+                        <div class="dz-loaded" id="htmlLoaded"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2 · Audio -->
+            <div class="step" id="step2">
+                <div class="step-header">
+                    <div class="step-num">2</div>
+                    <div>
+                        <div class="step-title">Background Audio</div>
+                        <div class="step-subtitle">Optional — MP3 / WAV voiceover</div>
+                    </div>
+                    <div class="step-status" id="s2status">Optional</div>
+                </div>
+                <div class="step-body">
+                    <div class="drop-zone" id="audioDrop">
+                        <input type="file" id="audioFile" accept="audio/*">
+                        <div class="dz-icon">🎵</div>
+                        <div class="dz-label">Drop audio or click to browse</div>
+                        <div class="dz-hint">MP3 · WAV · M4A · under 25 MB</div>
+                        <div class="dz-loaded" id="audioLoaded"></div>
+                    </div>
+                    <div class="field-row" style="margin-top:10px;gap:12px;display:flex;align-items:center;" id="audioSpeedControl">
+                        <div style="flex:1;">
+                            <div class="field-label" style="margin-bottom:6px;"><span>Speed Adjustment</span></div>
+                            <input type="range" id="audioSpeedRange" min="0.5" max="2.0" step="0.05" value="1.0">
+                        </div>
+                        <div style="width:60px;flex-shrink:0;">
+                            <div class="field-label" style="margin-bottom:6px;visibility:hidden;"><span>&nbsp;</span></div>
+                            <input type="number" id="audioSpeedInput" value="1.0" min="0.5" max="2.0" step="0.05" class="inp" style="padding: 6px 8px; font-size: 13px;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3 · Video Settings -->
+            <div class="step">
+                <div class="step-header">
+                    <div class="step-num">3</div>
+                    <div>
+                        <div class="step-title">Video Settings</div>
+                        <div class="step-subtitle">Resolution · FPS · Bitrate</div>
+                    </div>
+                </div>
+                <div class="step-body">
+                    <div class="settings-grid">
+                        <div class="setting-card">
+                            <div class="sc-label">Resolution</div>
+                            <select id="resolution" class="inp">
+                                <option value="1920x1080">1920×1080 — 1080p Landscape</option>
+                                <option value="1080x1920">1080×1920 — 1080p Vertical (Shorts)</option>
+                                <option value="2560x1440">2560×1440 — 1440p Landscape</option>
+                                <option value="1440x2560">1440×2560 — 1440p Vertical</option>
+                                <option value="3840x2160">3840×2160 — 4K Landscape</option>
+                                <option value="2160x3840">2160×3840 — 4K Vertical</option>
+                            </select>
+                        </div>
+                        <div class="setting-card">
+                            <div class="sc-label">FPS</div>
+                            <input type="number" id="fps" value="30" min="1" max="120" class="inp">
+                        </div>
+                        <div class="setting-card">
+                            <div class="sc-label">Bitrate (Mbps)</div>
+                            <input type="number" id="bitrate" value="12" min="1" max="100" step="0.5" class="inp">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 5 · Subtitles -->
+            <div class="step" id="step5">
+                <div class="step-header">
+                    <div class="step-num">5</div>
+                    <div>
+                        <div class="step-title">Subtitles</div>
+                        <div class="step-subtitle">Groq AI transcription or SRT/VTT</div>
+                    </div>
+                    <div class="step-status" id="s5status">Optional</div>
+                </div>
+                <div class="step-body">
+                    <!-- Groq key (Collapsible) -->
+                    <div id="groqSettingsPanel" style="display:none; padding-bottom:12px; margin-bottom:12px; border-bottom:1px solid var(--border);">
+                        <div class="field-label" style="margin-bottom:5px;">
+                            <span>Groq API Key</span>
+                            <span class="field-hint">Free · <a href="https://console.groq.com" target="_blank" style="color:var(--accent);">console.groq.com</a></span>
+                        </div>
+                        <div class="api-key-row" style="margin-bottom:0px;">
+                            <input type="password" id="groqApiKey" placeholder="gsk_..." autocomplete="off" class="inp inp-mono">
+                            <button id="saveKeyBtn" class="btn btn-ghost btn-sm">Save</button>
+                        </div>
+                    </div>
+                    
+                    <div style="display:flex; gap:8px; margin-bottom:8px;">
+                        <button id="autoSubBtn" class="btn btn-green" style="flex:1; font-size:12px; padding:10px 16px;">
+                            ⚡ Transcribe with Whisper
+                        </button>
+                        <button id="toggleGroqSettingsBtn" class="btn btn-ghost" style="padding:0 14px; border-color:var(--border);" title="API Key Settings">
+                            ⚙️
+                        </button>
+                    </div>
+                    <div id="compressAudioBox" style="display:none; margin-bottom:8px; padding:10px; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); border-radius:6px;">
+                        <div style="font-size:11px; color:#fca5a5; margin-bottom:8px;">Audio is larger than Groq's 25MB limit. Please compress it locally before transcribing.</div>
+                        <button id="compressBtn" class="btn btn-sm" style="background:#7f1d1d; color:#fff; border:1px solid #991b1b; width:100%;">🗜️ Compress for AI</button>
+                    </div>
+                    <div class="toast" id="aiProgress">
+                        <span class="toast-icon spin" id="toastIcon">⟳</span>
+                        <span class="toast-msg" id="toastMsg"></span>
+                        <span class="toast-elapsed" id="toastElapsed"></span>
+                    </div>
+                    <div class="or-divider">or upload SRT / VTT</div>
+                    <div class="drop-zone" id="subDrop">
+                        <input type="file" id="subFile" accept=".srt,.vtt">
+                        <div class="dz-icon">📄</div>
+                        <div class="dz-label">Upload .srt or .vtt file</div>
+                        <div class="dz-hint">SubRip or WebVTT format</div>
+                        <div class="dz-loaded" id="subLoaded"></div>
+                    </div>
+                    <div class="field-row" style="margin-top:4px;gap:8px;">
+                        <div>
+                            <div class="field-label"><span>Size</span></div>
+                            <input type="number" id="subSize" value="72" min="20" max="200" class="inp" style="padding: 6px 8px;">
+                        </div>
+                        <div style="flex:2;">
+                            <div class="field-label"><span>Style</span></div>
+                            <select id="subAnim" class="inp" style="padding: 6px 20px 6px 8px;">
+                                <option value="pop">⚡ Dynamic Pop</option>
+                                <option value="oneword">💬 One Word at a Time</option>
+                                <option value="highlight">🎤 Karaoke Highlight</option>
+                                <option value="slide">⬆ Slide Up</option>
+                                <option value="fade">✦ Smooth Fade</option>
+                                <option value="slam">💥 Impact Slam</option>
+                                <option value="blur">🌀 Cinematic Blur</option>
+                                <option value="typewriter">⌨ Typewriter</option>
+                                <option value="neon">🌐 Cyberpunk Neon</option>
+                                <option value="drop">🪂 Elastic Drop</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /sidebar -->
+
+        <!-- ═══ RIGHT MAIN AREA ═════════════════════════════════ -->
+        <div class="main-area">
+
+            <!-- Step 4 · Scene Durations (flex-grow, scrollable list) -->
+            <div class="step" id="step4">
+                <div class="step-header">
+                    <div class="step-num">4</div>
+                    <div>
+                        <div class="step-title">Scene Durations</div>
+                        <div class="step-subtitle">Set how long each scene plays</div>
+                    </div>
+                    <div class="step-status" id="s4status">Upload file first</div>
+                </div>
+                <div class="step-body">
+                    <div class="scenes-toolbar">
+                        <span class="label">Set all:</span>
+                        <input type="number" id="globalTimeInput" value="180" min="1" class="inp" style="max-width:72px;padding:6px 8px;">
+                        <span class="label">sec</span>
+                        <button id="applyGlobalTimeBtn" disabled class="btn btn-ghost btn-sm">Apply All</button>
+                        <button id="distributeBtn" disabled class="btn btn-ghost btn-sm">⟺ 30 min</button>
+                        <div class="total-badge" id="totalTimeDisplay">0s total</div>
+                    </div>
+                    <div id="scenesList">
+                        <div class="scene-empty">
+                            <div class="empty-icon">🎬</div>
+                            Upload a scene HTML in Step 1 to configure durations.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Render Panel -->
+            <div class="render-panel" id="renderPanel">
+                <div class="render-header">
+                    <span class="rh-icon">🚀</span>
+                    <div>
+                        <div class="rh-title">Render to MP4</div>
+                        <div class="rh-sub">Hardware H.264 · WebCodecs · auto-downloads when done</div>
+                    </div>
+                </div>
+                <div class="render-body">
+                    <div class="progress-wrap">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="progress-meta">
+                        <div id="statusText">Upload a scene file to begin.</div>
+                        <div id="progressPct" style="color:var(--accent);font-weight:600;"></div>
+                    </div>
+                    <div style="display:flex;gap:8px;">
+                        <button id="renderBtn" disabled class="btn btn-primary">🚀 Start Render</button>
+                        <button id="cancelBtn" class="btn btn-danger" style="display:none;max-width:160px;">🛑 Cancel</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Console -->
+            <div class="console-panel">
+                <div class="console-header">
+                    <div class="console-dot cd-red"></div>
+                    <div class="console-dot cd-yel"></div>
+                    <div class="console-dot cd-grn"></div>
+                    <span class="console-label">Console Output</span>
+                </div>
+                <div id="log"></div>
+            </div>
+
+        </div><!-- /main-area -->
+
+    </div><!-- /app-body -->
+
+</div><!-- /app-shell -->
+
+    <script src="app.js"></script>
+</body>
+</html>
+

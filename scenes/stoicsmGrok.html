@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Stoicism Visual Engine IV — 20 Cinematic Scenes</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            background: #000;
+            overflow: hidden;
+            font-family: 'Georgia', serif;
+        }
+
+        #stage {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 110px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+        }
+
+        #wrapper {
+            position: relative;
+            transform-origin: center center;
+        }
+
+        #wrapper canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 1920px;
+            height: 1080px;
+            display: none;
+        }
+
+        #wrapper canvas.active {
+            display: block;
+        }
+
+        #panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 110px;
+            background: rgba(2, 2, 4, 0.98);
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            display: flex;
+            flex-direction: column;
+            padding: 0 20px;
+            backdrop-filter: blur(20px);
+        }
+
+        #progress-wrap {
+            height: 3px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            position: relative;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        #progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #e8b86d, #f0d080, #c8903a);
+            width: 0%;
+            transition: width 0.25s linear;
+            position: relative;
+        }
+
+        #progress-fill::after {
+            content: '';
+            position: absolute;
+            right: -5px;
+            top: -4px;
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+            background: #e8b86d;
+            box-shadow: 0 0 12px #e8b86d88;
+        }
+
+        #controls {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 8px 0 4px;
+            flex-shrink: 0;
+        }
+
+        #playbtn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: 1px solid rgba(232, 184, 109, 0.45);
+            background: rgba(232, 184, 109, 0.07);
+            color: #e8b86d;
+            font-size: 17px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all .2s;
+            flex-shrink: 0;
+        }
+
+        #playbtn:hover {
+            background: rgba(232, 184, 109, 0.18);
+            border-color: #e8b86d;
+        }
+
+        .navbtn {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: transparent;
+            color: rgba(255, 255, 255, 0.45);
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all .2s;
+            flex-shrink: 0;
+        }
+
+        .navbtn:hover {
+            border-color: rgba(255, 255, 255, 0.3);
+            color: #fff;
+        }
+
+        #scene-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            margin-right: auto;
+        }
+
+        #scene-name {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.82);
+            letter-spacing: .04em;
+        }
+
+        #scene-sub {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.22);
+            letter-spacing: .1em;
+            text-transform: uppercase;
+        }
+
+        #timer-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        #timer-display {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.3);
+            letter-spacing: .08em;
+            font-variant-numeric: tabular-nums;
+        }
+
+        #speed-btn {
+            padding: 4px 11px;
+            border-radius: 3px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: transparent;
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 11px;
+            cursor: pointer;
+            transition: all .2s;
+        }
+
+        #speed-btn:hover {
+            border-color: rgba(255, 255, 255, 0.28);
+            color: rgba(255, 255, 255, 0.65);
+        }
+
+        #strip-wrap {
+            overflow-x: auto;
+            flex: 1;
+            padding: 5px 0 8px;
+            scrollbar-width: none;
+        }
+
+        #strip-wrap::-webkit-scrollbar {
+            display: none;
+        }
+
+        #strip {
+            display: flex;
+            gap: 7px;
+            align-items: center;
+            min-width: max-content;
+        }
+
+        .thumb {
+            flex-shrink: 0;
+            width: 90px;
+            height: 42px;
+            border-radius: 5px;
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            background: rgba(255, 255, 255, 0.03);
+            cursor: pointer;
+            transition: all .15s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .thumb:hover {
+            border-color: rgba(255, 255, 255, 0.22);
+            background: rgba(255, 255, 255, 0.07);
+        }
+
+        .thumb.active {
+            border-color: #e8b86d;
+            background: rgba(232, 184, 109, 0.08);
+        }
+
+        .thumb .tnum {
+            font-size: 9px;
+            color: rgba(255, 255, 255, 0.2);
+            letter-spacing: .08em;
+        }
+
+        .thumb .tname {
+            font-size: 9px;
+            color: rgba(255, 255, 255, 0.5);
+            text-align: center;
+            line-height: 1.25;
+            padding: 0 5px;
+        }
+
+        .thumb.active .tname {
+            color: #e8b86d;
+        }
+
+        .thumb .tbar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #e8b86d, #f0d080);
+            width: 0%;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="stage">
+        <div id="wrapper"></div>
+    </div>
+    <div id="panel">
+        <div id="progress-wrap" onclick="seekClick(event)">
+            <div id="progress-fill"></div>
+        </div>
+        <div id="controls">
+            <button class="navbtn" onclick="prev()">&#9664;</button>
+            <button id="playbtn" onclick="togglePlay()">&#9654;</button>
+            <button class="navbtn" onclick="next()">&#9654;&#9654;</button>
+            <div id="scene-info">
+                <div id="scene-name">Loading…</div>
+                <div id="scene-sub">Cinematic Series IV · 1920×1080</div>
+            </div>
+            <div id="timer-wrap">
+                <div id="timer-display">0:00 / 0:00</div>
+                <button id="speed-btn" onclick="cycleSpeed()">1×</button>
+            </div>
+        </div>
+        <div id="strip-wrap">
+            <div id="strip"></div>
+        </div>
+    </div>
+    <script>
+        const W = 1920, H = 1080;
+        const SCENES = [
+            { name: 'Mountain Erosion', sub: 'Rock yields to patient wind', dur: 22 },
+            { name: 'Phoenix Rebirth', sub: 'Ashes birth unyielding fire', dur: 20 },
+            { name: 'River Impermanence', sub: 'Flow bends without breaking', dur: 22 },
+            { name: 'Storm Eye Calm', sub: 'Chaos swirls, center holds', dur: 18 },
+            { name: 'Fractal Mandala', sub: 'Self-similar virtue unfolds', dur: 20 },
+            { name: 'Aurora Vigil', sub: 'Lights dance in silent watch', dur: 22 },
+            { name: 'Crystal Fortress', sub: 'Order emerges from melt', dur: 18 },
+            { name: 'Lava Solidify', sub: 'Passion cools to strength', dur: 20 },
+            { name: 'Fog Labyrinth', sub: 'Clarity pierces the mist', dur: 22 },
+            { name: 'Sundial Now', sub: 'Shadow teaches presence', dur: 18 },
+            { name: 'Leaf Release', sub: 'Golden surrender to season', dur: 20 },
+            { name: 'Ice Mirror Cave', sub: 'Stillness reflects truth', dur: 22 },
+            { name: 'Mirage Lesson', sub: 'Desire fades in heat', dur: 18 },
+            { name: 'Lightning Forge', sub: 'Strike tempers the soul', dur: 20 },
+            { name: 'Bell Resonance', sub: 'Echo without attachment', dur: 22 },
+            { name: 'Hourglass Flow', sub: 'Grains accept the fall', dur: 18 },
+            { name: 'Lotus Purity', sub: 'Bloom rises through mud', dur: 20 },
+            { name: 'Abyss Crossing', sub: 'Virtue bridges the dark', dur: 22 },
+            { name: 'Wind Canyon', sub: 'Sculpted by patient breath', dur: 18 },
+            { name: 'Eternal Orbit', sub: 'Return without regret', dur: 24 },
+        ];
+
+        const SPEEDS = [1, 1.5, 2, 0.5];
+        let speedIdx = 0, cur = 0, playing = false, sT = 0, frameT = 0;
+        const FPS = 60;
+        const ctxs = [];
+
+        const wrapper = document.getElementById('wrapper');
+        wrapper.style.width = W + 'px'; wrapper.style.height = H + 'px';
+        for (let i = 0; i < SCENES.length; i++) {
+            const c = document.createElement('canvas');
+            c.width = W; c.height = H; c.id = 'cv' + i;
+            wrapper.appendChild(c); ctxs.push(c.getContext('2d'));
+        }
+
+        function scaleStage() {
+            const st = document.getElementById('stage');
+            const s = Math.min(st.clientWidth / W, st.clientHeight / H);
+            wrapper.style.transform = `scale(${s})`;
+            wrapper.style.marginLeft = ((st.clientWidth - W * s) / 2) + 'px';
+            wrapper.style.marginTop = ((st.clientHeight - H * s) / 2) + 'px';
+        }
+        window.addEventListener('resize', scaleStage); scaleStage();
+
+        const strip = document.getElementById('strip');
+        SCENES.forEach((sc, i) => {
+            const d = document.createElement('div');
+            d.className = 'thumb' + (i === 0 ? ' active' : ''); d.id = 'th' + i;
+            d.innerHTML = `<div class="tnum">${String(i + 1).padStart(2, '0')}</div><div class="tname">${sc.name}</div><div class="tbar" id="tb${i}"></div>`;
+            d.onclick = () => goTo(i); strip.appendChild(d);
+        });
+
+        function goTo(i) {
+            document.getElementById('cv' + cur).classList.remove('active');
+            document.getElementById('th' + cur).classList.remove('active');
+            document.getElementById('tb' + cur).style.width = '0%';
+            cur = i; sT = 0;
+            document.getElementById('cv' + i).classList.add('active');
+            document.getElementById('th' + i).classList.add('active');
+            document.getElementById('scene-name').textContent = SCENES[i].name;
+            document.getElementById('th' + i).scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        }
+        function prev() { if (cur > 0) goTo(cur - 1); }
+        function next() { if (cur < SCENES.length - 1) goTo(cur + 1); }
+        function togglePlay() { playing = !playing; document.getElementById('playbtn').innerHTML = playing ? '&#9646;&#9646;' : '&#9654;'; }
+        function cycleSpeed() { speedIdx = (speedIdx + 1) % SPEEDS.length; document.getElementById('speed-btn').textContent = SPEEDS[speedIdx] + '×'; }
+        function seekClick(e) {
+            const rect = e.currentTarget.getBoundingClientRect(); const pct = (e.clientX - rect.left) / rect.width;
+            const tot = SCENES.reduce((a, s) => a + s.dur, 0); let acc = 0, tgt = pct * tot;
+            for (let i = 0; i < SCENES.length; i++) { if (acc + SCENES[i].dur >= tgt) { goTo(i); sT = Math.floor((tgt - acc) * FPS / SPEEDS[speedIdx]); break; } acc += SCENES[i].dur; }
+        }
+        function fmt(s) { return Math.floor(s / 60) + ':' + (s % 60 < 10 ? '0' : '') + s % 60; }
+
+        function masterLoop() {
+            requestAnimationFrame(masterLoop); frameT++;
+            const sc = SCENES[cur]; const tot = sc.dur * FPS / SPEEDS[speedIdx];
+            if (playing) { sT++; if (sT >= tot) { if (cur < SCENES.length - 1) goTo(cur + 1); else { playing = false; document.getElementById('playbtn').innerHTML = '&#9654;'; } } }
+            R[cur](frameT, sT, tot);
+            const pct = Math.min(1, sT / tot) * 100;
+            document.getElementById('tb' + cur).style.width = pct + '%';
+            const el = Math.floor(sT / FPS * SPEEDS[speedIdx]);
+            document.getElementById('timer-display').textContent = fmt(el) + ' / ' + fmt(sc.dur);
+            const totD = SCENES.reduce((a, s) => a + s.dur, 0);
+            const doneD = SCENES.slice(0, cur).reduce((a, s) => a + s.dur, 0) + el;
+            document.getElementById('progress-fill').style.width = (doneD / totD * 100) + '%';
+        }
+
+        const L = (a, b, t) => a + (b - a) * t;
+        const rnd = (a, b) => a + Math.random() * (b - a);
+        const ei = (t) => t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        const R = [];
+
+        /* ═══════════════════════════════════
+           0 · MOUNTAIN EROSION
+           Rock yields to patient wind
+        ═══════════════════════════════════ */
+        (() => {
+            const basePts = Array.from({ length: 45 }, (_, i) => ({ x: i * W / 44, y: H * 0.58 + rnd(-35, 35) }));
+            const dust = Array.from({ length: 950 }, () => ({ x: rnd(0, W), y: rnd(H * 0.35, H * 0.75), vx: rnd(-1.2, 1.2), vy: rnd(0.8, 2.8), sz: rnd(1.2, 3.8), life: rnd(60, 220) }));
+            R[0] = (gt, st, tot) => {
+                const cx = ctxs[0]; const p = ei(st / tot);
+                const erode = p * 42;
+                cx.fillStyle = 'rgba(4,6,12,0.22)'; cx.fillRect(0, 0, W, H);
+                cx.beginPath(); cx.moveTo(0, H);
+                basePts.forEach((pt, i) => {
+                    const py = pt.y - Math.max(0, erode * (1 - i / 45 * 0.3));
+                    cx.lineTo(pt.x, py);
+                });
+                cx.lineTo(W, H); cx.closePath();
+                cx.fillStyle = 'rgba(28,24,19,0.96)'; cx.fill();
+                cx.shadowBlur = 18; cx.shadowColor = 'rgba(0,0,0,0.6)';
+                cx.strokeStyle = 'rgba(48,42,32,0.35)'; cx.lineWidth = 4; cx.stroke();
+                cx.shadowBlur = 0;
+                dust.forEach(d => {
+                    d.y += d.vy; d.x += d.vx + Math.sin(gt * 0.014 + d.y) * 0.6; d.life--;
+                    if (d.life < 0 || d.y > H) { d.y = rnd(H * 0.32, H * 0.55); d.life = rnd(90, 240); d.vx = rnd(-1.4, 1.4); }
+                    const fade = d.life / 220;
+                    cx.fillStyle = `rgba(165,150,125,${fade * 0.75})`; cx.fillRect(d.x, d.y, d.sz * 0.8, d.sz * 1.6);
+                });
+                const snow = cx.createRadialGradient(W * 0.48, H * 0.22, 0, W * 0.5, H * 0.18, 120);
+                snow.addColorStop(0, `rgba(255,255,245,${0.45 * (1 - p * 0.2)})`); snow.addColorStop(1, 'rgba(255,255,255,0)');
+                cx.fillStyle = snow; cx.fillRect(0, 0, W, H * 0.45);
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           1 · PHOENIX REBIRTH
+           Ashes birth unyielding fire
+        ═══════════════════════════════════ */
+        (() => {
+            const embers = Array.from({ length: 680 }, () => ({ x: rnd(W * 0.3, W * 0.7), y: H + rnd(40, 180), vx: rnd(-2.5, 2.5), vy: -rnd(3, 7), rot: rnd(0, Math.PI * 2), vrot: rnd(-0.12, 0.12), sz: rnd(2, 6) }));
+            const ash = Array.from({ length: 420 }, () => ({ x: rnd(0, W), y: rnd(H * 0.4, H), vx: rnd(-0.6, 0.6), vy: -rnd(0.3, 1.1), sz: rnd(1, 4) }));
+            R[1] = (gt, st, tot) => {
+                const cx = ctxs[1]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(8,3,0,0.18)'; cx.fillRect(0, 0, W, H);
+                const fireGlow = cx.createRadialGradient(W / 2, H * 0.65, 0, W / 2, H * 0.55, 280 * (1 + p * 0.6));
+                fireGlow.addColorStop(0, `rgba(255,${Math.floor(L(80, 220, p))},40,${p * 0.9})`); fireGlow.addColorStop(1, 'rgba(0,0,0,0)');
+                cx.fillStyle = fireGlow; cx.fillRect(0, 0, W, H);
+                ash.forEach(a => { a.y += a.vy; a.x += a.vx; cx.beginPath(); cx.arc(a.x, a.y, a.sz, 0, Math.PI * 2); cx.fillStyle = `rgba(90,70,55,${0.6 - p * 0.3})`; cx.fill(); });
+                embers.forEach(e => {
+                    e.y += e.vy; e.x += e.vx; e.rot += e.vrot; e.vy *= 0.985; e.vx *= 0.982;
+                    if (e.y < -30) { e.y = H * 0.9; e.vy = -rnd(4, 9); e.vx = rnd(-3.5, 3.5); }
+                    cx.save(); cx.translate(e.x, e.y); cx.rotate(e.rot);
+                    cx.fillStyle = `hsla(${L(12, 38, p)},95%,${L(55, 88, p)}%,${0.9})`;
+                    cx.fillRect(-e.sz * 0.6, -e.sz * 1.8, e.sz * 1.2, e.sz * 3.2);
+                    cx.restore();
+                });
+                const body = cx.createRadialGradient(W / 2, H * 0.68, 30, W / 2, H * 0.68, 160);
+                body.addColorStop(0, 'rgba(255,240,100,0.95)'); body.addColorStop(1, 'rgba(255,60,0,0)');
+                cx.fillStyle = body; cx.fillRect(W / 2 - 90, H * 0.48, 180, 220);
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           2 · RIVER IMPERMANENCE
+           Flow bends without breaking
+        ═══════════════════════════════════ */
+        (() => {
+            const ripplePts = Array.from({ length: 28 }, () => rnd(0, Math.PI * 2));
+            R[2] = (gt, st, tot) => {
+                const cx = ctxs[2]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(2,12,28,0.2)'; cx.fillRect(0, 0, W, H);
+                for (let layer = 0; layer < 7; layer++) {
+                    cx.beginPath(); cx.moveTo(0, H * 0.75);
+                    for (let x = 0; x <= W; x += 7) {
+                        const wave = Math.sin(x * 0.003 + gt * 0.018 + layer) * 28 + Math.sin(x * 0.009 + gt * 0.011) * 12;
+                        cx.lineTo(x, H * 0.68 + layer * 18 + wave * (1 - p * 0.3));
+                    }
+                    cx.lineTo(W, H); cx.lineTo(0, H); cx.closePath();
+                    cx.fillStyle = `rgba(25,${Math.floor(55 + layer * 8)},${Math.floor(95 + layer * 12)},${0.55 + layer * 0.06})`; cx.fill();
+                }
+                ripplePts.forEach((ph, i) => {
+                    const rx = W * 0.2 + i * W * 0.028; const ry = H * 0.62 + Math.sin(gt * 0.007 + i) * 12;
+                    const rSize = 18 + Math.sin(gt * 0.024 + i * 0.7) * 9;
+                    cx.beginPath(); cx.arc(rx, ry, rSize, 0, Math.PI * 2);
+                    cx.strokeStyle = `rgba(180,225,255,${0.25 * (1 - p * 0.4)})`;
+                    cx.lineWidth = 1.2; cx.stroke();
+                });
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           3 · STORM EYE CALM
+           Chaos swirls, center holds
+        ═══════════════════════════════════ */
+        (() => {
+            const vortex = Array.from({ length: 520 }, () => ({ a: rnd(0, Math.PI * 2), r: rnd(80, 480), vr: rnd(0.6, 2.8), sz: rnd(1, 4) }));
+            R[3] = (gt, st, tot) => {
+                const cx = ctxs[3]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(0,0,8,0.25)'; cx.fillRect(0, 0, W, H);
+                const eyeR = 120 + p * 40;
+                vortex.forEach(v => {
+                    v.a += 0.028; v.r += v.vr * (1 - p * 0.6);
+                    if (v.r > 620) { v.r = 80; v.a = rnd(0, Math.PI * 2); }
+                    const px = W / 2 + Math.cos(v.a) * v.r; const py = H / 2 + Math.sin(v.a) * v.r * 0.6;
+                    cx.fillStyle = `rgba(35,45,65,${0.65})`; cx.fillRect(px, py, v.sz, v.sz * 2.4);
+                });
+                const calm = cx.createRadialGradient(W / 2, H / 2, eyeR, W / 2, H / 2, eyeR + 220);
+                calm.addColorStop(0, 'rgba(255,255,255,0.08)'); calm.addColorStop(1, 'rgba(0,0,0,0)');
+                cx.fillStyle = calm; cx.fillRect(0, 0, W, H);
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           4 · FRACTAL MANDALA
+           Self-similar virtue unfolds
+        ═══════════════════════════════════ */
+        (() => {
+            R[4] = (gt, st, tot) => {
+                const cx = ctxs[4]; const p = ei(st / tot * 1.1);
+                cx.fillStyle = 'rgba(2,0,6,0.18)'; cx.fillRect(0, 0, W, H);
+                const levels = Math.floor(p * 11) + 3;
+                for (let lvl = 0; lvl < levels; lvl++) {
+                    const radius = 60 + lvl * 68;
+                    for (let seg = 0; seg < 24; seg++) {
+                        const a = seg * (Math.PI * 2 / 24) + gt * 0.006 * lvl;
+                        const x = W / 2 + Math.cos(a) * radius; const y = H / 2 + Math.sin(a) * radius * 0.92;
+                        cx.save(); cx.translate(x, y); cx.rotate(a + gt * 0.003);
+                        cx.fillStyle = `hsla(${L(260, 310, p)},${L(45, 75, p)}%,${L(55, 82, p)}%,${0.6 - p * 0.3})`;
+                        cx.fillRect(-12, -12, 24, 24);
+                        cx.restore();
+                    }
+                }
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           5 · AURORA VIGIL
+           Lights dance in silent watch
+        ═══════════════════════════════════ */
+        (() => {
+            const auroraBands = Array.from({ length: 9 }, (_, i) => ({ ph: i * 0.7, spd: 0.008 + i * 0.003, amp: 45 + i * 18 }));
+            R[5] = (gt, st, tot) => {
+                const cx = ctxs[5]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(0,4,18,0.22)'; cx.fillRect(0, 0, W, H);
+                auroraBands.forEach((b, i) => {
+                    cx.beginPath(); cx.moveTo(0, H * 0.28);
+                    for (let x = 0; x <= W; x += 6) {
+                        const wave = Math.sin(x * 0.003 + gt * b.spd + b.ph) * b.amp;
+                        cx.lineTo(x, H * 0.22 + i * 38 + wave);
+                    }
+                    cx.lineTo(W, H * 0.85); cx.lineTo(0, H * 0.85); cx.closePath();
+                    cx.fillStyle = `hsla(${L(170, 210, p)},85%,${L(48, 72, p)}%,${0.35 - p * 0.12})`; cx.fill();
+                });
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           6 · CRYSTAL FORTRESS
+           Order emerges from melt
+        ═══════════════════════════════════ */
+        (() => {
+            const crystals = Array.from({ length: 34 }, () => ({ x: rnd(W * 0.15, W * 0.85), y: rnd(H * 0.35, H * 0.82), h: rnd(80, 240), angle: rnd(-0.6, 0.6) }));
+            R[6] = (gt, st, tot) => {
+                const cx = ctxs[6]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(3,8,22,0.2)'; cx.fillRect(0, 0, W, H);
+                crystals.forEach(c => {
+                    cx.save(); cx.translate(c.x, c.y); cx.rotate(c.angle);
+                    cx.beginPath(); cx.moveTo(0, 0); cx.lineTo(-28, c.h); cx.lineTo(28, c.h); cx.closePath();
+                    cx.fillStyle = `rgba(200,235,255,${p * 0.65})`; cx.fill();
+                    cx.strokeStyle = 'rgba(255,255,255,0.25)'; cx.lineWidth = 2; cx.stroke();
+                    cx.restore();
+                });
+                const shine = cx.createRadialGradient(W * 0.48, H * 0.32, 0, W * 0.5, H * 0.28, 180);
+                shine.addColorStop(0, `rgba(255,255,240,${p * 0.45})`); shine.addColorStop(1, 'rgba(0,0,0,0)');
+                cx.fillStyle = shine; cx.fillRect(0, 0, W, H * 0.6);
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           7 · LAVA SOLIDIFY
+           Passion cools to strength
+        ═══════════════════════════════════ */
+        (() => {
+            const cracks = Array.from({ length: 22 }, () => rnd(0, W));
+            R[7] = (gt, st, tot) => {
+                const cx = ctxs[7]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(18,3,0,0.25)'; cx.fillRect(0, 0, W, H);
+                const lava = cx.createLinearGradient(0, H * 0.4, 0, H);
+                lava.addColorStop(0, `rgba(255,${Math.floor(L(110, 40, p))},10,${0.95 - p * 0.6})`); lava.addColorStop(1, 'rgba(80,10,0,0.4)');
+                cx.fillStyle = lava; cx.fillRect(0, H * 0.35, W, H * 0.65);
+                cracks.forEach((cxPos, i) => {
+                    cx.beginPath(); cx.moveTo(cxPos, H * 0.38); cx.quadraticCurveTo(cxPos + Math.sin(gt * 0.009 + i) * 22, H * 0.6, cxPos - 12, H);
+                    cx.strokeStyle = `rgba(30,10,5,${p * 0.7})`; cx.lineWidth = 3.5; cx.stroke();
+                });
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           8 · FOG LABYRINTH
+           Clarity pierces the mist
+        ═══════════════════════════════════ */
+        (() => {
+            const paths = Array.from({ length: 6 }, () => rnd(W * 0.2, W * 0.8));
+            R[8] = (gt, st, tot) => {
+                const cx = ctxs[8]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(12,14,18,0.22)'; cx.fillRect(0, 0, W, H);
+                for (let i = 0; i < paths.length; i++) {
+                    cx.beginPath(); cx.moveTo(paths[i], 0);
+                    for (let y = 0; y <= H; y += 12) { cx.lineTo(paths[i] + Math.sin(y * 0.004 + gt * 0.012 + i) * 38, y); }
+                    cx.strokeStyle = `rgba(255,255,255,${0.09 * p})`; cx.lineWidth = 2; cx.stroke();
+                }
+                const clear = cx.createRadialGradient(W / 2, H * 0.45, 80, W / 2, H * 0.45, 420);
+                clear.addColorStop(0, `rgba(245,248,255,${p * 0.22})`); clear.addColorStop(1, 'rgba(0,0,0,0)');
+                cx.fillStyle = clear; cx.fillRect(0, 0, W, H);
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           9 · SUNDIAL NOW
+           Shadow teaches presence
+        ═══════════════════════════════════ */
+        (() => {
+            R[9] = (gt, st, tot) => {
+                const cx = ctxs[9]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(6,4,2,0.2)'; cx.fillRect(0, 0, W, H);
+                const dialR = 240;
+                cx.beginPath(); cx.arc(W / 2, H * 0.62, dialR, 0, Math.PI * 2);
+                cx.fillStyle = 'rgba(38,32,22,0.95)'; cx.fill();
+                const shadowAngle = Math.PI * 0.6 + p * Math.PI * 1.4;
+                const sx = W / 2 + Math.cos(shadowAngle) * dialR * 0.92;
+                const sy = H * 0.62 + Math.sin(shadowAngle) * dialR * 0.6;
+                cx.beginPath(); cx.moveTo(W / 2, H * 0.62); cx.lineTo(sx, sy);
+                cx.strokeStyle = 'rgba(0,0,0,0.75)'; cx.lineWidth = 18; cx.stroke();
+                cx.fillStyle = 'rgba(255,220,140,0.85)'; cx.fillRect(W / 2 - 12, H * 0.62 - 12, 24, 24);
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           10 · LEAF RELEASE
+           Golden surrender to season
+        ═══════════════════════════════════ */
+        (() => {
+            const leaves = Array.from({ length: 280 }, () => ({ x: rnd(0, W), y: rnd(-80, H * 0.3), vx: rnd(-1.8, 2.2), vy: rnd(0.9, 2.6), rot: rnd(0, Math.PI * 2), vrot: rnd(-0.08, 0.08), sz: rnd(18, 44) }));
+            R[10] = (gt, st, tot) => {
+                const cx = ctxs[10]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(4,7,3,0.18)'; cx.fillRect(0, 0, W, H);
+                leaves.forEach(l => {
+                    l.y += l.vy; l.x += l.vx; l.rot += l.vrot;
+                    if (l.y > H + 40) { l.y = -40; l.x = rnd(0, W); }
+                    cx.save(); cx.translate(l.x, l.y); cx.rotate(l.rot);
+                    cx.fillStyle = `hsla(${L(38, 22, p)},${L(85, 65, p)}%,${L(62, 38, p)}%,0.9)`;
+                    cx.beginPath(); cx.ellipse(0, 0, l.sz * 0.6, l.sz * 1.1, 0, 0, Math.PI * 2); cx.fill();
+                    cx.restore();
+                });
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           11 · ICE MIRROR CAVE
+           Stillness reflects truth
+        ═══════════════════════════════════ */
+        (() => {
+            const icicles = Array.from({ length: 38 }, () => ({ x: rnd(W * 0.12, W * 0.88), len: rnd(90, 260) }));
+            R[11] = (gt, st, tot) => {
+                const cx = ctxs[11]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(0,8,18,0.25)'; cx.fillRect(0, 0, W, H);
+                icicles.forEach((ic, i) => {
+                    cx.beginPath(); cx.moveTo(ic.x, H * 0.18); cx.lineTo(ic.x - 8, H * 0.18 + ic.len);
+                    cx.lineTo(ic.x + 8, H * 0.18 + ic.len); cx.closePath();
+                    cx.fillStyle = `rgba(210,245,255,${0.75 - p * 0.3})`; cx.fill();
+                });
+                const mirror = cx.createLinearGradient(0, H * 0.55, 0, H);
+                mirror.addColorStop(0, 'rgba(255,255,255,0)'); mirror.addColorStop(1, `rgba(180,230,255,${p * 0.28})`);
+                cx.fillStyle = mirror; cx.fillRect(0, H * 0.52, W, H * 0.48);
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           12 · MIRAGE LESSON
+           Desire fades in heat
+        ═══════════════════════════════════ */
+        (() => {
+            const dunes = Array.from({ length: 5 }, (_, i) => ({ y: H * 0.62 + i * 22, amp: 28 + i * 11 }));
+            R[12] = (gt, st, tot) => {
+                const cx = ctxs[12]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(18,10,4,0.22)'; cx.fillRect(0, 0, W, H);
+                dunes.forEach((d, i) => {
+                    cx.beginPath(); cx.moveTo(0, H);
+                    for (let x = 0; x <= W; x += 5) { cx.lineTo(x, d.y + Math.sin(x * 0.004 + gt * 0.009) * d.amp); }
+                    cx.lineTo(W, H); cx.closePath();
+                    cx.fillStyle = `rgba(${28 + i * 6},${22 + i * 5},${12},0.9)`; cx.fill();
+                });
+                const mirage = cx.createRadialGradient(W * 0.58, H * 0.38, 0, W * 0.62, H * 0.42, 220);
+                mirage.addColorStop(0, `rgba(255,245,180,${(1 - p) * 0.35})`); mirage.addColorStop(1, 'rgba(0,0,0,0)');
+                cx.fillStyle = mirage; cx.fillRect(0, 0, W, H * 0.65);
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           13 · LIGHTNING FORGE
+           Strike tempers the soul
+        ═══════════════════════════════════ */
+        (() => {
+            let strikeTime = 0;
+            R[13] = (gt, st, tot) => {
+                const cx = ctxs[13]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(2,2,6,0.2)'; cx.fillRect(0, 0, W, H);
+                if (Math.random() < 0.035) { strikeTime = gt; }
+                if (gt - strikeTime < 18) {
+                    for (let i = 0; i < 4; i++) {
+                        cx.beginPath(); cx.moveTo(W * 0.48 + Math.random() * 80, H * 0.12);
+                        let px = W * 0.48, py = H * 0.12;
+                        for (let k = 0; k < 9; k++) {
+                            px += rnd(-38, 38); py += rnd(55, 95);
+                            cx.lineTo(px, py);
+                        }
+                        cx.strokeStyle = `rgba(210,240,255,${(18 - (gt - strikeTime)) / 18})`; cx.lineWidth = 3.5; cx.stroke();
+                    }
+                }
+                const glow = cx.createRadialGradient(W * 0.52, H * 0.45, 0, W * 0.5, H * 0.5, 260);
+                glow.addColorStop(0, `rgba(255,220,80,${p * 0.22})`); glow.addColorStop(1, 'rgba(0,0,0,0)');
+                cx.fillStyle = glow; cx.fillRect(0, 0, W, H);
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           14 · BELL RESONANCE
+           Echo without attachment
+        ═══════════════════════════════════ */
+        (() => {
+            R[14] = (gt, st, tot) => {
+                const cx = ctxs[14]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(3,3,7,0.18)'; cx.fillRect(0, 0, W, H);
+                const bellX = W * 0.5; const bellY = H * 0.48;
+                cx.beginPath(); cx.arc(bellX, bellY, 92, Math.PI, 0, false); cx.fillStyle = 'rgba(210,190,120,0.95)'; cx.fill();
+                const ring = p * 1.8;
+                for (let r = 0; r < 5; r++) {
+                    const rad = 92 + r * 38 + Math.sin(gt * 0.028 + r) * 6 * ring;
+                    cx.beginPath(); cx.arc(bellX, bellY, rad, 0, Math.PI * 2);
+                    cx.strokeStyle = `rgba(255,240,180,${0.35 * (1 - r / 5) * ring})`; cx.lineWidth = 2.5; cx.stroke();
+                }
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           15 · HOURGLASS FLOW
+           Grains accept the fall
+        ═══════════════════════════════════ */
+        (() => {
+            const grains = Array.from({ length: 680 }, () => ({ x: rnd(W * 0.44, W * 0.56), y: rnd(H * 0.22, H * 0.48), vy: rnd(1.1, 3.4) }));
+            R[15] = (gt, st, tot) => {
+                const cx = ctxs[15]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(6,4,2,0.2)'; cx.fillRect(0, 0, W, H);
+                cx.beginPath(); cx.moveTo(W * 0.46, H * 0.18); cx.lineTo(W * 0.54, H * 0.18); cx.lineTo(W * 0.5, H * 0.78); cx.lineTo(W * 0.46, H * 0.18); cx.fillStyle = 'rgba(110,85,55,0.9)'; cx.fill();
+                grains.forEach(g => { g.y += g.vy; if (g.y > H * 0.76) g.y = H * 0.22; cx.fillStyle = 'rgba(245,225,160,0.85)'; cx.fillRect(g.x, g.y, 2.8, 2.8); });
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           16 · LOTUS PURITY
+           Bloom rises through mud
+        ═══════════════════════════════════ */
+        (() => {
+            const petals = Array.from({ length: 12 }, (_, i) => ({ a: i * Math.PI * 2 / 12 }));
+            R[16] = (gt, st, tot) => {
+                const cx = ctxs[16]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(4,10,6,0.22)'; cx.fillRect(0, 0, W, H);
+                const lotusY = H * 0.68;
+                petals.forEach(pt => {
+                    const sway = Math.sin(gt * 0.022 + pt.a) * 6;
+                    cx.save(); cx.translate(W / 2 + sway * 0.6, lotusY); cx.rotate(pt.a + sway * 0.008);
+                    cx.beginPath(); cx.ellipse(0, -42, 28, 68, 0, 0, Math.PI * 2);
+                    cx.fillStyle = `hsla(200,65%,${L(75, 92, p)}%,${0.85})`; cx.fill();
+                    cx.restore();
+                });
+                cx.beginPath(); cx.arc(W / 2, lotusY - 22, 24, 0, Math.PI * 2);
+                cx.fillStyle = 'rgba(255,250,200,0.95)'; cx.fill();
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           17 · ABYSS CROSSING
+           Virtue bridges the dark
+        ═══════════════════════════════════ */
+        (() => {
+            const planks = Array.from({ length: 14 }, (_, i) => ({ x: W * 0.22 + i * W * 0.042 }));
+            R[17] = (gt, st, tot) => {
+                const cx = ctxs[17]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(1,1,6,0.25)'; cx.fillRect(0, 0, W, H);
+                cx.beginPath(); cx.moveTo(W * 0.18, H * 0.78); cx.lineTo(W * 0.82, H * 0.78);
+                cx.strokeStyle = 'rgba(95,75,45,0.9)'; cx.lineWidth = 22; cx.stroke();
+                planks.forEach(pl => {
+                    cx.fillStyle = 'rgba(120,95,55,0.95)'; cx.fillRect(pl.x, H * 0.72, 18, 42);
+                });
+                const voidGlow = cx.createRadialGradient(W * 0.5, H * 0.85, 0, W * 0.5, H * 0.92, 180);
+                voidGlow.addColorStop(0, `rgba(0,0,0,${p * 0.6})`); voidGlow.addColorStop(1, 'rgba(0,0,0,0)');
+                cx.fillStyle = voidGlow; cx.fillRect(0, H * 0.65, W, H * 0.35);
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           18 · WIND CANYON
+           Sculpted by patient breath
+        ═══════════════════════════════════ */
+        (() => {
+            const layers = Array.from({ length: 7 }, (_, i) => ({ y: H * 0.38 + i * 48, amp: 22 + i * 14 }));
+            R[18] = (gt, st, tot) => {
+                const cx = ctxs[18]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(14,10,6,0.2)'; cx.fillRect(0, 0, W, H);
+                layers.forEach((l, i) => {
+                    cx.beginPath(); cx.moveTo(0, l.y);
+                    for (let x = 0; x <= W; x += 6) {
+                        cx.lineTo(x, l.y + Math.sin(x * 0.003 + gt * 0.011) * l.amp * (1 - i * 0.08));
+                    }
+                    cx.lineTo(W, H); cx.lineTo(0, H); cx.closePath();
+                    cx.fillStyle = `rgba(${22 + i * 7},${18 + i * 5},${12},0.88)`; cx.fill();
+                });
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           19 · ETERNAL ORBIT
+           Return without regret
+        ═══════════════════════════════════ */
+        (() => {
+            const stars = Array.from({ length: 240 }, () => ({ a: rnd(0, Math.PI * 2), r: rnd(120, 520) }));
+            R[19] = (gt, st, tot) => {
+                const cx = ctxs[19]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(0,0,4,0.2)'; cx.fillRect(0, 0, W, H);
+                stars.forEach(s => {
+                    const px = W / 2 + Math.cos(s.a + gt * 0.004) * s.r;
+                    const py = H / 2 + Math.sin(s.a + gt * 0.004) * s.r * 0.6;
+                    cx.fillStyle = 'rgba(255,255,245,0.75)'; cx.fillRect(px, py, 1.8, 1.8);
+                });
+                const core = cx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, 110);
+                core.addColorStop(0, 'rgba(255,240,180,0.9)'); core.addColorStop(1, 'rgba(0,0,0,0)');
+                cx.fillStyle = core; cx.fillRect(0, 0, W, H);
+            };
+        })();
+
+        goTo(0);
+        document.getElementById('scene-name').textContent = SCENES[0].name;
+        masterLoop();
+    </script>
+</body>
+
+</html>

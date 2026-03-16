@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Stoicism Audio Sync Visual Engine — Control Your Reaction</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            background: #000;
+            overflow: hidden;
+            font-family: 'Georgia', serif;
+        }
+
+        #stage {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 110px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+        }
+
+        #wrapper {
+            position: relative;
+            transform-origin: center center;
+        }
+
+        #wrapper canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 1920px;
+            height: 1080px;
+            display: none;
+        }
+
+        #wrapper canvas.active {
+            display: block;
+        }
+
+        #panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 110px;
+            background: rgba(2, 2, 4, 0.98);
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            display: flex;
+            flex-direction: column;
+            padding: 0 20px;
+            backdrop-filter: blur(20px);
+        }
+
+        #progress-wrap {
+            height: 3px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            position: relative;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        #progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #e8b86d, #f0d080, #c8903a);
+            width: 0%;
+            transition: width 0.25s linear;
+            position: relative;
+        }
+
+        #progress-fill::after {
+            content: '';
+            position: absolute;
+            right: -5px;
+            top: -4px;
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+            background: #e8b86d;
+            box-shadow: 0 0 12px #e8b86d88;
+        }
+
+        #controls {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 8px 0 4px;
+            flex-shrink: 0;
+        }
+
+        #playbtn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: 1px solid rgba(232, 184, 109, 0.45);
+            background: rgba(232, 184, 109, 0.07);
+            color: #e8b86d;
+            font-size: 17px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all .2s;
+            flex-shrink: 0;
+        }
+
+        #playbtn:hover {
+            background: rgba(232, 184, 109, 0.18);
+            border-color: #e8b86d;
+        }
+
+        .navbtn {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: transparent;
+            color: rgba(255, 255, 255, 0.45);
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all .2s;
+            flex-shrink: 0;
+        }
+
+        .navbtn:hover {
+            border-color: rgba(255, 255, 255, 0.3);
+            color: #fff;
+        }
+
+        #scene-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            margin-right: auto;
+        }
+
+        #scene-name {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.82);
+            letter-spacing: .04em;
+        }
+
+        #scene-sub {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.22);
+            letter-spacing: .1em;
+            text-transform: uppercase;
+        }
+
+        #timer-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        #timer-display {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.3);
+            letter-spacing: .08em;
+            font-variant-numeric: tabular-nums;
+        }
+
+        #speed-btn {
+            padding: 4px 11px;
+            border-radius: 3px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: transparent;
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 11px;
+            cursor: pointer;
+            transition: all .2s;
+        }
+
+        #speed-btn:hover {
+            border-color: rgba(255, 255, 255, 0.28);
+            color: rgba(255, 255, 255, 0.65);
+        }
+
+        #strip-wrap {
+            overflow-x: auto;
+            flex: 1;
+            padding: 5px 0 8px;
+            scrollbar-width: none;
+        }
+
+        #strip-wrap::-webkit-scrollbar {
+            display: none;
+        }
+
+        #strip {
+            display: flex;
+            gap: 7px;
+            align-items: center;
+            min-width: max-content;
+        }
+
+        .thumb {
+            flex-shrink: 0;
+            width: 90px;
+            height: 42px;
+            border-radius: 5px;
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            background: rgba(255, 255, 255, 0.03);
+            cursor: pointer;
+            transition: all .15s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .thumb:hover {
+            border-color: rgba(255, 255, 255, 0.22);
+            background: rgba(255, 255, 255, 0.07);
+        }
+
+        .thumb.active {
+            border-color: #e8b86d;
+            background: rgba(232, 184, 109, 0.08);
+        }
+
+        .thumb .tnum {
+            font-size: 9px;
+            color: rgba(255, 255, 255, 0.2);
+            letter-spacing: .08em;
+        }
+
+        .thumb .tname {
+            font-size: 9px;
+            color: rgba(255, 255, 255, 0.5);
+            text-align: center;
+            line-height: 1.25;
+            padding: 0 5px;
+        }
+
+        .thumb.active .tname {
+            color: #e8b86d;
+        }
+
+        .thumb .tbar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #e8b86d, #f0d080);
+            width: 0%;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="stage">
+        <div id="wrapper"></div>
+    </div>
+    <div id="panel">
+        <div id="progress-wrap" onclick="seekClick(event)">
+            <div id="progress-fill"></div>
+        </div>
+        <div id="controls">
+            <button class="navbtn" onclick="prev()">&#9664;</button>
+            <button id="playbtn" onclick="togglePlay()">&#9654;</button>
+            <button class="navbtn" onclick="next()">&#9654;&#9654;</button>
+            <div id="scene-info">
+                <div id="scene-name">Loading…</div>
+                <div id="scene-sub">SRT-Matched Audio Visualizer · 1920×1080</div>
+            </div>
+            <div id="timer-wrap">
+                <div id="timer-display">0:00 / 0:00</div>
+                <button id="speed-btn" onclick="cycleSpeed()">1×</button>
+            </div>
+        </div>
+        <div id="strip-wrap">
+            <div id="strip"></div>
+        </div>
+    </div>
+    <script>
+        const W = 1920, H = 1080;
+        const SCENES = [
+            { name: 'Control the One Thing', sub: 'Your reaction is all that matters', dur: 7 },
+            { name: 'Epictetus Email Shock', sub: 'Role eliminated — the event is fixed', dur: 12 },
+            { name: 'The Spiral', sub: 'Panic, anger, blame', dur: 5 },
+            { name: 'Stoic Perspective', sub: 'Event happened. Reaction is still yours', dur: 8 },
+            { name: 'Pause & Ask', sub: 'What reaction would make me stronger?', dur: 8 },
+            { name: 'Mind Fortress', sub: 'Power over your mind, not events', dur: 8 },
+            { name: 'Marcus Aurelius', sub: 'Modern US example', dur: 5 },
+            { name: 'Boss Team Criticism', sub: 'Embarrassing… but unshakeable', dur: 7 }
+        ];
+
+        const SPEEDS = [1, 1.5, 2, 0.5];
+        let speedIdx = 0, cur = 0, playing = false, sT = 0, frameT = 0;
+        const FPS = 60;
+        const ctxs = [];
+
+        const wrapper = document.getElementById('wrapper');
+        wrapper.style.width = W + 'px'; wrapper.style.height = H + 'px';
+        for (let i = 0; i < SCENES.length; i++) {
+            const c = document.createElement('canvas');
+            c.width = W; c.height = H; c.id = 'cv' + i;
+            wrapper.appendChild(c); ctxs.push(c.getContext('2d'));
+        }
+
+        function scaleStage() {
+            const st = document.getElementById('stage');
+            const s = Math.min(st.clientWidth / W, st.clientHeight / H);
+            wrapper.style.transform = `scale(${s})`;
+            wrapper.style.marginLeft = ((st.clientWidth - W * s) / 2) + 'px';
+            wrapper.style.marginTop = ((st.clientHeight - H * s) / 2) + 'px';
+        }
+        window.addEventListener('resize', scaleStage); scaleStage();
+
+        const strip = document.getElementById('strip');
+        SCENES.forEach((sc, i) => {
+            const d = document.createElement('div');
+            d.className = 'thumb' + (i === 0 ? ' active' : ''); d.id = 'th' + i;
+            d.innerHTML = `<div class="tnum">${String(i + 1).padStart(2, '0')}</div><div class="tname">${sc.name}</div><div class="tbar" id="tb${i}"></div>`;
+            d.onclick = () => goTo(i); strip.appendChild(d);
+        });
+
+        function goTo(i) {
+            document.getElementById('cv' + cur).classList.remove('active');
+            document.getElementById('th' + cur).classList.remove('active');
+            document.getElementById('tb' + cur).style.width = '0%';
+            cur = i; sT = 0;
+            document.getElementById('cv' + i).classList.add('active');
+            document.getElementById('th' + i).classList.add('active');
+            document.getElementById('scene-name').textContent = SCENES[i].name;
+            document.getElementById('th' + i).scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        }
+        function prev() { if (cur > 0) goTo(cur - 1); }
+        function next() { if (cur < SCENES.length - 1) goTo(cur + 1); }
+        function togglePlay() { playing = !playing; document.getElementById('playbtn').innerHTML = playing ? '&#9646;&#9646;' : '&#9654;'; }
+        function cycleSpeed() { speedIdx = (speedIdx + 1) % SPEEDS.length; document.getElementById('speed-btn').textContent = SPEEDS[speedIdx] + '×'; }
+        function seekClick(e) {
+            const rect = e.currentTarget.getBoundingClientRect(); const pct = (e.clientX - rect.left) / rect.width;
+            const tot = SCENES.reduce((a, s) => a + s.dur, 0); let acc = 0, tgt = pct * tot;
+            for (let i = 0; i < SCENES.length; i++) { if (acc + SCENES[i].dur >= tgt) { goTo(i); sT = Math.floor((tgt - acc) * FPS / SPEEDS[speedIdx]); break; } acc += SCENES[i].dur; }
+        }
+        function fmt(s) { return Math.floor(s / 60) + ':' + (s % 60 < 10 ? '0' : '') + s % 60; }
+
+        function masterLoop() {
+            requestAnimationFrame(masterLoop); frameT++;
+            const sc = SCENES[cur]; const tot = sc.dur * FPS / SPEEDS[speedIdx];
+            if (playing) { sT++; if (sT >= tot) { if (cur < SCENES.length - 1) goTo(cur + 1); else { playing = false; document.getElementById('playbtn').innerHTML = '&#9654;'; } } }
+            R[cur](frameT, sT, tot);
+            const pct = Math.min(1, sT / tot) * 100;
+            document.getElementById('tb' + cur).style.width = pct + '%';
+            const el = Math.floor(sT / FPS * SPEEDS[speedIdx]);
+            document.getElementById('timer-display').textContent = fmt(el) + ' / ' + fmt(sc.dur);
+            const totD = SCENES.reduce((a, s) => a + s.dur, 0);
+            const doneD = SCENES.slice(0, cur).reduce((a, s) => a + s.dur, 0) + el;
+            document.getElementById('progress-fill').style.width = (doneD / totD * 100) + '%';
+        }
+
+        const L = (a, b, t) => a + (b - a) * t;
+        const rnd = (a, b) => a + Math.random() * (b - a);
+        const ei = (t) => t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        const R = [];
+
+        /* ═══════════════════════════════════
+           0 · CONTROL THE ONE THING
+           Single glowing reaction core
+        ═══════════════════════════════════ */
+        (() => {
+            R[0] = (gt, st, tot) => {
+                const cx = ctxs[0]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(2,2,8,0.22)'; cx.fillRect(0, 0, W, H);
+                const coreR = 110 + p * 40;
+                const cg = cx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, coreR * 2.2);
+                cg.addColorStop(0, `rgba(232,184,109,${0.95})`);
+                cg.addColorStop(0.6, `rgba(255,220,140,${0.4 * p})`);
+                cg.addColorStop(1, 'rgba(0,0,0,0)');
+                cx.fillStyle = cg; cx.fillRect(0, 0, W, H);
+                for (let i = 0; i < 42; i++) {
+                    const a = gt * 0.008 + i * 0.15;
+                    const rx = W / 2 + Math.cos(a) * coreR * 1.8;
+                    const ry = H / 2 + Math.sin(a) * coreR * 0.9;
+                    cx.fillStyle = `rgba(255,240,200,${0.25 * (1 - p * 0.3)})`;
+                    cx.fillRect(rx, ry, 3, 3);
+                }
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           1 · EPICTETUS EMAIL SHOCK
+           Laptop + dreaded email alert
+        ═══════════════════════════════════ */
+        (() => {
+            R[1] = (gt, st, tot) => {
+                const cx = ctxs[1]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(0,0,0,0.25)'; cx.fillRect(0, 0, W, H);
+                // laptop
+                cx.fillStyle = 'rgba(30,30,35,0.95)'; cx.fillRect(W * 0.28, H * 0.32, W * 0.44, H * 0.48);
+                cx.fillStyle = 'rgba(10,10,12,1)'; cx.fillRect(W * 0.32, H * 0.38, W * 0.36, H * 0.35);
+                // email pop
+                const alertY = H * 0.42 + Math.sin(gt * 0.12) * 4;
+                cx.fillStyle = 'rgba(255,60,60,0.96)'; cx.fillRect(W * 0.38, alertY, W * 0.24, 110);
+                cx.fillStyle = '#fff'; cx.font = 'bold 42px Georgia';
+                cx.fillText('✉', W * 0.42, alertY + 68);
+                cx.font = '22px Georgia'; cx.fillStyle = '#000';
+                cx.fillText('Role eliminated', W * 0.47, alertY + 92);
+                // red pulse
+                if (p < 0.7) {
+                    const pulse = cx.createRadialGradient(W / 2, H * 0.55, 80, W / 2, H * 0.55, 280);
+                    pulse.addColorStop(0, `rgba(255,40,40,${(0.7 - p) * 0.6})`); pulse.addColorStop(1, 'rgba(0,0,0,0)');
+                    cx.fillStyle = pulse; cx.fillRect(0, 0, W, H);
+                }
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           2 · THE SPIRAL
+           Chaotic red particles
+        ═══════════════════════════════════ */
+        (() => {
+            const chaos = Array.from({ length: 680 }, () => ({ x: rnd(W * 0.3, W * 0.7), y: rnd(H * 0.3, H * 0.7), vx: rnd(-6, 6), vy: rnd(-6, 6), sz: rnd(2, 7) }));
+            R[2] = (gt, st, tot) => {
+                const cx = ctxs[2]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(12,2,2,0.3)'; cx.fillRect(0, 0, W, H);
+                chaos.forEach(c => {
+                    c.x += c.vx; c.y += c.vy; c.vx *= 0.96; c.vy *= 0.96;
+                    if (Math.random() < 0.03) { c.vx = rnd(-8, 8); c.vy = rnd(-8, 8); }
+                    cx.fillStyle = `rgba(255,${Math.floor(80 + 80 * p)},40,0.85)`;
+                    cx.fillRect(c.x, c.y, c.sz, c.sz * 2.2);
+                });
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           3 · STOIC PERSPECTIVE
+           Calm blue center in red chaos
+        ═══════════════════════════════════ */
+        (() => {
+            R[3] = (gt, st, tot) => {
+                const cx = ctxs[3]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(2,6,18,0.22)'; cx.fillRect(0, 0, W, H);
+                const calmR = 160 + p * 80;
+                const calm = cx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, calmR);
+                calm.addColorStop(0, 'rgba(100,220,255,0.75)'); calm.addColorStop(1, 'rgba(0,0,0,0)');
+                cx.fillStyle = calm; cx.fillRect(0, 0, W, H);
+                // faint outer chaos
+                cx.fillStyle = `rgba(255,60,40,${0.18 * (1 - p)})`;
+                cx.fillRect(0, 0, W, H);
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           4 · PAUSE & ASK
+           Golden question mark + pause ring
+        ═══════════════════════════════════ */
+        (() => {
+            R[4] = (gt, st, tot) => {
+                const cx = ctxs[4]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(4,4,2,0.22)'; cx.fillRect(0, 0, W, H);
+                const qx = W / 2 + Math.sin(gt * 0.08) * 18;
+                cx.font = 'bold 320px Georgia'; cx.fillStyle = `rgba(232,184,109,${0.9})`;
+                cx.fillText('?', qx, H * 0.68);
+                // expanding pause ring
+                for (let i = 0; i < 5; i++) {
+                    const r = 80 + i * 48 + gt * 1.2;
+                    cx.beginPath(); cx.arc(W / 2, H * 0.62, r, 0, Math.PI * 2);
+                    cx.strokeStyle = `rgba(255,220,140,${0.35 * (1 - i / 5) * p})`; cx.lineWidth = 3; cx.stroke();
+                }
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           5 · MIND FORTRESS
+           Stone walls + glowing inner light
+        ═══════════════════════════════════ */
+        (() => {
+            R[5] = (gt, st, tot) => {
+                const cx = ctxs[5]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(8,7,4,0.25)'; cx.fillRect(0, 0, W, H);
+                // fortress walls
+                cx.fillStyle = 'rgba(55,48,38,0.92)'; cx.fillRect(W * 0.22, H * 0.28, W * 0.56, H * 0.58);
+                // inner light
+                const inner = cx.createRadialGradient(W / 2, H * 0.55, 20, W / 2, H * 0.55, 240);
+                inner.addColorStop(0, `rgba(255,245,180,${p * 0.95})`); inner.addColorStop(1, 'rgba(0,0,0,0)');
+                cx.fillStyle = inner; cx.fillRect(0, 0, W, H);
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           6 · MARCUS AURELIUS
+           Golden emperor silhouette + text fade
+        ═══════════════════════════════════ */
+        (() => {
+            R[6] = (gt, st, tot) => {
+                const cx = ctxs[6]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(12,8,2,0.2)'; cx.fillRect(0, 0, W, H);
+                cx.fillStyle = `rgba(255,220,140,${p * 0.85})`;
+                cx.font = 'bold 88px Georgia'; cx.fillText('M·A', W * 0.42, H * 0.58);
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           7 · BOSS TEAM CRITICISM
+           Meeting table + calm figure
+        ═══════════════════════════════════ */
+        (() => {
+            const speechBubbles = [];
+            R[7] = (gt, st, tot) => {
+                const cx = ctxs[7]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(4,6,14,0.22)'; cx.fillRect(0, 0, W, H);
+                // table
+                cx.fillStyle = 'rgba(45,38,28,0.9)'; cx.fillRect(W * 0.18, H * 0.68, W * 0.64, H * 0.18);
+                // calm figure
+                cx.fillStyle = 'rgba(220,210,180,0.95)'; cx.fillRect(W * 0.48, H * 0.48, 38, 92);
+                // red speech bubbles (criticism)
+                if (Math.random() < 0.12 && speechBubbles.length < 4) {
+                    speechBubbles.push({ x: rnd(W * 0.22, W * 0.42), life: 38 });
+                }
+                for (let i = speechBubbles.length - 1; i >= 0; i--) {
+                    const b = speechBubbles[i]; b.life--;
+                    if (b.life <= 0) { speechBubbles.splice(i, 1); continue; }
+                    cx.fillStyle = `rgba(255,70,60,${b.life / 38})`;
+                    cx.fillRect(b.x, H * 0.38, 110, 42);
+                }
+            };
+        })();
+
+        goTo(0);
+        document.getElementById('scene-name').textContent = SCENES[0].name;
+        masterLoop();
+    </script>
+</body>
+
+</html>
