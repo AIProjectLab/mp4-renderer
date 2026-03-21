@@ -1,0 +1,1624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Stoicism Visual Engine VIII — 20 Cinematic Scenes</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; background: #000; overflow: hidden; font-family: 'Georgia', serif; }
+        #stage { position: fixed; top: 0; left: 0; right: 0; bottom: 110px; display: flex; align-items: center; justify-content: center; background: #000; }
+        #wrapper { position: relative; transform-origin: center center; }
+        #wrapper canvas { position: absolute; top: 0; left: 0; width: 1920px; height: 1080px; display: none; }
+        #wrapper canvas.active { display: block; }
+        #panel { position: fixed; bottom: 0; left: 0; right: 0; height: 110px; background: rgba(2,2,4,0.98); border-top: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; padding: 0 20px; backdrop-filter: blur(20px); }
+        #progress-wrap { height: 3px; width: 100%; background: rgba(255,255,255,0.05); position: relative; cursor: pointer; flex-shrink: 0; }
+        #progress-fill { height: 100%; background: linear-gradient(90deg,#e8b86d,#f0d080,#c8903a); width: 0%; transition: width 0.25s linear; position: relative; }
+        #progress-fill::after { content:''; position: absolute; right:-5px; top:-4px; width:11px; height:11px; border-radius:50%; background:#e8b86d; box-shadow:0 0 12px #e8b86d88; }
+        #controls { display: flex; align-items: center; gap: 14px; padding: 8px 0 4px; flex-shrink: 0; }
+        #playbtn { width:44px; height:44px; border-radius:50%; border:1px solid rgba(232,184,109,0.45); background:rgba(232,184,109,0.07); color:#e8b86d; font-size:17px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .2s; flex-shrink:0; }
+        #playbtn:hover { background:rgba(232,184,109,0.18); border-color:#e8b86d; }
+        .navbtn { width:34px; height:34px; border-radius:50%; border:1px solid rgba(255,255,255,0.1); background:transparent; color:rgba(255,255,255,0.45); font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .2s; flex-shrink:0; }
+        .navbtn:hover { border-color:rgba(255,255,255,0.3); color:#fff; }
+        #scene-info { display:flex; flex-direction:column; gap:2px; margin-right:auto; }
+        #scene-name { font-size:13px; color:rgba(255,255,255,0.82); letter-spacing:.04em; }
+        #scene-sub { font-size:10px; color:rgba(255,255,255,0.22); letter-spacing:.1em; text-transform:uppercase; }
+        #timer-wrap { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+        #timer-display { font-size:12px; color:rgba(255,255,255,0.3); letter-spacing:.08em; font-variant-numeric:tabular-nums; }
+        #speed-btn { padding:4px 11px; border-radius:3px; border:1px solid rgba(255,255,255,0.1); background:transparent; color:rgba(255,255,255,0.3); font-size:11px; cursor:pointer; transition:all .2s; }
+        #speed-btn:hover { border-color:rgba(255,255,255,0.28); color:rgba(255,255,255,0.65); }
+        #strip-wrap { overflow-x:auto; flex:1; padding:5px 0 8px; scrollbar-width:none; }
+        #strip-wrap::-webkit-scrollbar { display:none; }
+        #strip { display:flex; gap:7px; align-items:center; min-width:max-content; }
+        .thumb { flex-shrink:0; width:90px; height:42px; border-radius:5px; border:1px solid rgba(255,255,255,0.07); background:rgba(255,255,255,0.03); cursor:pointer; transition:all .15s; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; position:relative; overflow:hidden; }
+        .thumb:hover { border-color:rgba(255,255,255,0.22); background:rgba(255,255,255,0.07); }
+        .thumb.active { border-color:#e8b86d; background:rgba(232,184,109,0.08); }
+        .thumb .tnum { font-size:9px; color:rgba(255,255,255,0.2); letter-spacing:.08em; }
+        .thumb .tname { font-size:9px; color:rgba(255,255,255,0.5); text-align:center; line-height:1.25; padding:0 5px; }
+        .thumb.active .tname { color:#e8b86d; }
+        .thumb .tbar { position:absolute; bottom:0; left:0; height:2px; background:linear-gradient(90deg,#e8b86d,#f0d080); width:0%; }
+    </style>
+</head>
+<body>
+    <div id="stage"><div id="wrapper"></div></div>
+    <div id="panel">
+        <div id="progress-wrap" onclick="seekClick(event)"><div id="progress-fill"></div></div>
+        <div id="controls">
+            <button class="navbtn" onclick="prev()">&#9664;</button>
+            <button id="playbtn" onclick="togglePlay()">&#9654;</button>
+            <button class="navbtn" onclick="next()">&#9654;&#9654;</button>
+            <div id="scene-info">
+                <div id="scene-name">Loading…</div>
+                <div id="scene-sub">Cinematic Series VIII · 1920×1080</div>
+            </div>
+            <div id="timer-wrap">
+                <div id="timer-display">0:00 / 0:00</div>
+                <button id="speed-btn" onclick="cycleSpeed()">1×</button>
+            </div>
+        </div>
+        <div id="strip-wrap"><div id="strip"></div></div>
+    </div>
+<script>
+const W=1920,H=1080;
+const SCENES=[
+    {name:'Tide Before Storm',      sub:'The sea pulls back before it strikes',       dur:30},
+    {name:'Single Feather Fall',    sub:'No wind. No hurry. Perfect arc.',            dur:30},
+    {name:'Moon Through Pines',     sub:'Light that asks nothing of the branches',    dur:30},
+    {name:'Old Well at Dusk',       sub:'Depth has always been there, waiting',       dur:30},
+    {name:'Hawk Thermal Rise',      sub:'Effort stops. Patience does the climbing.',  dur:30},
+    {name:'Temple Bell at Dawn',    sub:'The sound fills what was empty all along',   dur:30},
+    {name:'River Bends Past Rock',  sub:'Force finds way around, not through',   dur:30},
+    {name:'First Snow on Embers',   sub:'Two truths meeting without conflict',        dur:30},
+    {name:'Cuttlefish Camouflage',  sub:'The self can be worn lightly',               dur:30},
+    {name:'Old Bridge in Flood',    sub:'Built for this. Tested now. Still here.',    dur:30},
+    {name:'Burning Arrow Arc',      sub:'Released. The rest is not your task.',       dur:30},
+    {name:'Aurora Over Frozen Lake',sub:'The sky has always done this alone',         dur:30},
+    {name:'Tortoise on Lava Field', sub:'Unhurried crossing of difficult ground',     dur:30},
+    {name:'Smoke Signal at Dusk',   sub:'One column. Clear intention. Silence after.',dur:30},
+    {name:'Beehive at Noon',        sub:'Purpose so complete it needs no name',       dur:30},
+    {name:'Sea Stack at High Tide', sub:'Isolated. Unmoved. Enough.',                 dur:30},
+    {name:'Caterpillar on Branch',  sub:'No sense of wings. Perfect faith.',      dur:30},
+    {name:'Monastery at Snowfall',  sub:'Practice continues through all weather',     dur:30},
+    {name:'Tidal Wave on Horizon',  sub:'It comes. You can see it. You stand.',       dur:30},
+    {name:'Last Ember of Day',      sub:'The long light going. Still warm. Still.',   dur:30},
+];
+
+const SPEEDS=[1,1.5,2,0.5];
+let speedIdx=0,cur=0,playing=false,sT=0,frameT=0;
+const FPS=60;const ctxs=[];
+
+const wrapper=document.getElementById('wrapper');
+wrapper.style.width=W+'px';wrapper.style.height=H+'px';
+for(let i=0;i<SCENES.length;i++){
+    const c=document.createElement('canvas');
+    c.width=W;c.height=H;c.id='cv'+i;
+    wrapper.appendChild(c);ctxs.push(c.getContext('2d'));
+}
+function scaleStage(){
+    const st=document.getElementById('stage');
+    const s=Math.min(st.clientWidth/W,st.clientHeight/H);
+    wrapper.style.transform=`scale(${s})`;
+    wrapper.style.marginLeft=((st.clientWidth-W*s)/2)+'px';
+    wrapper.style.marginTop=((st.clientHeight-H*s)/2)+'px';
+}
+window.addEventListener('resize',scaleStage);scaleStage();
+
+const strip=document.getElementById('strip');
+SCENES.forEach((sc,i)=>{
+    const d=document.createElement('div');
+    d.className='thumb'+(i===0?' active':'');d.id='th'+i;
+    d.innerHTML=`<div class="tnum">${String(i+1).padStart(2,'0')}</div><div class="tname">${sc.name}</div><div class="tbar" id="tb${i}"></div>`;
+    d.onclick=()=>goTo(i);strip.appendChild(d);
+});
+function goTo(i){
+    document.getElementById('cv'+cur).classList.remove('active');
+    document.getElementById('th'+cur).classList.remove('active');
+    document.getElementById('tb'+cur).style.width='0%';
+    cur=i;sT=0;
+    document.getElementById('cv'+i).classList.add('active');
+    document.getElementById('th'+i).classList.add('active');
+    document.getElementById('scene-name').textContent=SCENES[i].name;
+    document.getElementById('th'+i).scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'});
+}
+function prev(){if(cur>0)goTo(cur-1);}
+function next(){if(cur<SCENES.length-1)goTo(cur+1);}
+function togglePlay(){playing=!playing;document.getElementById('playbtn').innerHTML=playing?'&#9646;&#9646;':'&#9654;';}
+function cycleSpeed(){speedIdx=(speedIdx+1)%SPEEDS.length;document.getElementById('speed-btn').textContent=SPEEDS[speedIdx]+'×';}
+function seekClick(e){
+    const rect=e.currentTarget.getBoundingClientRect();const pct=(e.clientX-rect.left)/rect.width;
+    const tot=SCENES.reduce((a,s)=>a+s.dur,0);let acc=0,tgt=pct*tot;
+    for(let i=0;i<SCENES.length;i++){if(acc+SCENES[i].dur>=tgt){goTo(i);sT=Math.floor((tgt-acc)*FPS/SPEEDS[speedIdx]);break;}acc+=SCENES[i].dur;}
+}
+function fmt(s){return Math.floor(s/60)+':'+(s%60<10?'0':'')+s%60;}
+
+function masterLoop(){
+    requestAnimationFrame(masterLoop);frameT++;
+    const sc=SCENES[cur];const tot=sc.dur*FPS/SPEEDS[speedIdx];
+    if(playing){sT++;if(sT>=tot){if(cur<SCENES.length-1)goTo(cur+1);else{playing=false;document.getElementById('playbtn').innerHTML='&#9654;';}}}
+    R[cur](frameT,sT,tot);
+    const pct=Math.min(1,sT/tot)*100;
+    document.getElementById('tb'+cur).style.width=pct+'%';
+    const el=Math.floor(sT/FPS*SPEEDS[speedIdx]);
+    document.getElementById('timer-display').textContent=fmt(el)+' / '+fmt(sc.dur);
+    const totD=SCENES.reduce((a,s)=>a+s.dur,0);
+    const doneD=SCENES.slice(0,cur).reduce((a,s)=>a+s.dur,0)+el;
+    document.getElementById('progress-fill').style.width=(doneD/totD*100)+'%';
+}
+
+const L=(a,b,t)=>a+(b-a)*t;
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const ei=(t)=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+const R=[];
+
+/* ═══ 0 · TIDE BEFORE STORM ═══════════
+   The ocean pulls impossibly far back —
+   exposing ancient seabed — then nothing.
+   Then the wall.
+══════════════════════════════════════ */
+(()=>{
+    const seafloorRocks=Array.from({length:40},()=>({x:rnd(0,W),y:rnd(H*0.55,H*0.88),r:rnd(5,30),hue:rnd(20,45)}));
+    const foamStrands=Array.from({length:25},(_,i)=>({x:i*(W/24),ph:Math.random()*Math.PI*2}));
+    R[0]=(gt,st,tot)=>{
+        const cx=ctxs[0];const p=ei(st/tot);
+        cx.fillStyle='rgba(3,4,6,0.2)';cx.fillRect(0,0,W,H);
+        // sky — green-yellow storm light, the famous pre-tsunami color
+        const skyG=cx.createLinearGradient(0,0,0,H*0.5);
+        skyG.addColorStop(0,`rgba(${Math.floor(L(12,35,p))},${Math.floor(L(14,32,p))},${Math.floor(L(8,12,p))},0.6)`);
+        skyG.addColorStop(0.5,`rgba(${Math.floor(L(35,80,p))},${Math.floor(L(40,75,p))},${Math.floor(L(12,18,p))},0.4)`);
+        skyG.addColorStop(1,'rgba(0,0,0,0)');
+        cx.fillStyle=skyG;cx.fillRect(0,0,W,H*0.5);
+        // storm clouds building on horizon
+        for(let i=0;i<8;i++){
+            const ccx=W*(0.06+i*0.12);const ccy=H*(0.08+i%3*0.06);
+            const cg=cx.createRadialGradient(ccx,ccy,0,ccx,ccy,W*0.12);
+            cg.addColorStop(0,`rgba(${Math.floor(L(28,15,p))},${Math.floor(L(28,14,p))},${Math.floor(L(22,10,p))},${0.3+p*0.2})`);
+            cg.addColorStop(1,'rgba(0,0,0,0)');
+            cx.fillStyle=cg;cx.fillRect(0,0,W,H*0.5);
+        }
+        // the water RETREATING — waterline rises (goes further back) as p increases
+        const waterY=H*(0.42+p*0.36);
+        // exposed seabed
+        if(p>0.1){
+            const bedG=cx.createLinearGradient(0,H*0.42,0,waterY);
+            bedG.addColorStop(0,`rgba(${Math.floor(L(55,65,p))},${Math.floor(L(50,58,p))},${Math.floor(L(38,44,p))},0.9)`);
+            bedG.addColorStop(1,`rgba(${Math.floor(L(40,50,p))},${Math.floor(L(35,44,p))},${Math.floor(L(25,32,p))},0.95)`);
+            cx.fillStyle=bedG;cx.fillRect(0,H*0.42,W,waterY-H*0.42);
+            // wet sand texture, rocks and shells exposed
+            seafloorRocks.forEach(r=>{
+                if(r.y>waterY){cx.beginPath();cx.ellipse(r.x,r.y,r.r*1.4,r.r*0.6,rnd(0,Math.PI),0,Math.PI*2);
+                cx.fillStyle=`hsla(${r.hue},28%,${28+Math.floor(rnd(0,12))}%,0.8)`;cx.fill();}
+            });
+            // stranded fish, shells reflecting wet
+            for(let i=0;i<20;i++){
+                const sx=((i*337)%W),sy=H*0.45+((i*197)%(waterY-H*0.45));
+                cx.beginPath();cx.ellipse(sx,sy,rnd(4,12),rnd(2,5),rnd(0,Math.PI),0,Math.PI*2);
+                cx.fillStyle=`rgba(180,170,150,${0.1+Math.sin(gt*0.04+i)*0.04})`;cx.fill();
+            }
+        }
+        // retreating water surface
+        cx.beginPath();cx.moveTo(0,H);
+        for(let x=0;x<=W;x+=10)cx.lineTo(x,waterY+Math.sin(x*0.005+gt*0.025)*12);
+        cx.lineTo(W,H);cx.closePath();
+        const wgr=cx.createLinearGradient(0,waterY,0,H);
+        wgr.addColorStop(0,`rgba(${Math.floor(L(20,12,p))},${Math.floor(L(45,28,p))},${Math.floor(L(55,35,p))},0.85)`);
+        wgr.addColorStop(1,'rgba(6,18,25,0.97)');
+        cx.fillStyle=wgr;cx.fill();
+        // foam strands at retreating waterline
+        foamStrands.forEach(f=>{
+            cx.beginPath();cx.ellipse(f.x,waterY+rnd(-3,3),rnd(20,60),rnd(3,8),0,0,Math.PI*2);
+            cx.fillStyle=`rgba(210,225,235,${0.15+Math.sin(gt*0.04+f.ph)*0.08})`;cx.fill();
+        });
+        // far horizon — wall of dark water building (late scene)
+        if(p>0.7){
+            const wallH=(p-0.7)*H*0.6;const wallAl=(p-0.7)*1.4;
+            const wallG=cx.createLinearGradient(0,H*0.12,0,H*0.12+wallH);
+            wallG.addColorStop(0,`rgba(${Math.floor(L(8,5,p))},${Math.floor(L(22,14,p))},${Math.floor(L(35,22,p))},${wallAl*0.6})`);
+            wallG.addColorStop(0.3,`rgba(5,18,28,${wallAl*0.9})`);
+            wallG.addColorStop(1,`rgba(2,8,15,${wallAl*0.4})`);
+            cx.fillStyle=wallG;cx.fillRect(0,H*0.12,W,wallH);
+            // white crest of wave
+            cx.beginPath();cx.moveTo(0,H*0.12+wallH);
+            for(let x=0;x<=W;x+=8)cx.lineTo(x,H*0.12+wallH+Math.sin(x*0.008+gt*0.04)*14);
+            cx.strokeStyle=`rgba(220,235,245,${wallAl*0.5})`;cx.lineWidth=3;cx.stroke();
+        }
+    };
+})();
+
+/* ═══ 1 · SINGLE FEATHER FALL ══════════
+   One white feather. No wind.
+   A perfect silent arc through dark air.
+══════════════════════════════════════ */
+(()=>{
+    R[1]=(gt,st,tot)=>{
+        const cx=ctxs[1];const p=ei(st/tot);
+        cx.fillStyle='rgba(3,3,4,0.24)';cx.fillRect(0,0,W,H);
+        // void — near black, slight warmth
+        const vg=cx.createRadialGradient(W*0.5,H*0.5,0,W*0.5,H*0.5,W*0.6);
+        vg.addColorStop(0,'rgba(12,10,8,0.3)');vg.addColorStop(1,'rgba(2,2,3,0.2)');
+        cx.fillStyle=vg;cx.fillRect(0,0,W,H);
+        // feather path — a graceful parabolic arc with gentle rotation
+        const fallY=H*(-0.12)+p*H*1.25;// enters top, exits bottom
+        const driftX=W*0.5+Math.sin(p*Math.PI*2.5)*W*0.12;// pendulum drift
+        const tilt=Math.sin(p*Math.PI*3)*0.4+p*0.3;// rotating slowly
+        // feather glow — very soft aura
+        const fg=cx.createRadialGradient(driftX,fallY,0,driftX,fallY,90);
+        fg.addColorStop(0,`rgba(255,252,245,${0.06+Math.sin(gt*0.02)*0.01})`);fg.addColorStop(1,'rgba(0,0,0,0)');
+        cx.fillStyle=fg;cx.fillRect(driftX-95,fallY-95,190,190);
+        // draw feather
+        cx.save();cx.translate(driftX,fallY);cx.rotate(tilt);
+        // rachis (central shaft)
+        cx.beginPath();cx.moveTo(0,-55);cx.lineTo(0,55);
+        cx.strokeStyle='rgba(240,238,232,0.88)';cx.lineWidth=1.8;cx.stroke();
+        // barbs — left side
+        for(let b=-10;b<=10;b++){
+            const by=b*5.2;const bw=Math.sqrt(Math.max(0,55*55-by*by))*0.88;
+            cx.beginPath();cx.moveTo(0,by);cx.quadraticCurveTo(-bw*0.55,by-bw*0.08,-bw,by+bw*0.12);
+            cx.strokeStyle=`rgba(238,235,228,${0.65+Math.abs(b)*0.006})`;cx.lineWidth=0.9;cx.stroke();
+            cx.beginPath();cx.moveTo(0,by);cx.quadraticCurveTo(bw*0.55,by-bw*0.08,bw,by+bw*0.12);
+            cx.strokeStyle=`rgba(238,235,228,${0.65+Math.abs(b)*0.006})`;cx.lineWidth=0.9;cx.stroke();
+        }
+        // quill tip
+        cx.beginPath();cx.moveTo(0,55);cx.quadraticCurveTo(4,68,1,80);
+        cx.strokeStyle='rgba(220,215,205,0.5)';cx.lineWidth=1.5;cx.stroke();
+        cx.restore();
+        // very faint air current lines — the invisible made visible
+        for(let i=0;i<6;i++){
+            const lx=driftX+rnd(-120,120),ly=fallY+rnd(-60,60);
+            cx.beginPath();cx.moveTo(lx,ly);cx.lineTo(lx+rnd(20,60),ly+rnd(-4,4));
+            cx.strokeStyle=`rgba(180,175,168,${0.015+Math.sin(gt*0.03+i)*0.008})`;cx.lineWidth=0.6;cx.stroke();
+        }
+    };
+})();
+
+/* ═══ 2 · MOON THROUGH PINES ═══════════
+   A full moon climbs through dark pines.
+   The branches do not care. The light
+   finds the gaps anyway.
+══════════════════════════════════════ */
+(()=>{
+    const pines=Array.from({length:22},(_,i)=>({
+        x:i*(W/21)+rnd(-25,25),h:rnd(H*0.35,H*0.78),
+        spread:rnd(W*0.03,W*0.065),layers:Math.floor(rnd(4,9)),
+        sway:rnd(0.002,0.005),ph:Math.random()*Math.PI*2
+    }));
+    const mist=Array.from({length:8},(_,i)=>({y:H*0.55+i*H*0.055,ph:i*0.6,amp:12+i*6}));
+    R[2]=(gt,st,tot)=>{
+        const cx=ctxs[2];const p=ei(st/tot);
+        cx.fillStyle='rgba(1,2,5,0.22)';cx.fillRect(0,0,W,H);
+        // deep blue night — cold and clear
+        const sky=cx.createLinearGradient(0,0,0,H*0.65);
+        sky.addColorStop(0,'rgba(1,4,14,0.6)');sky.addColorStop(0.5,'rgba(2,6,20,0.4)');sky.addColorStop(1,'rgba(0,0,0,0)');
+        cx.fillStyle=sky;cx.fillRect(0,0,W,H*0.65);
+        // stars — crisp winter sky
+        for(let i=0;i<180;i++){
+            const sx=((i*337)%W),sy=((i*197)%(H*0.6));
+            const tw=Math.sin(gt*0.04+i)*0.25+0.75;
+            cx.beginPath();cx.arc(sx,sy,rnd(0.3,1.6)*tw,0,Math.PI*2);
+            cx.fillStyle=`rgba(255,255,255,${tw*0.55})`;cx.fill();
+        }
+        // moon rising — enters from bottom right, climbs to upper center
+        const moonAngle=Math.PI*0.72-p*Math.PI*0.52;
+        const moonX=W*0.5+Math.cos(moonAngle)*W*0.38;
+        const moonY=H*0.52-p*H*0.38;
+        // moon halo
+        const halo=cx.createRadialGradient(moonX,moonY,0,moonX,moonY,160);
+        halo.addColorStop(0,`rgba(255,252,230,${0.12+p*0.06})`);
+        halo.addColorStop(0.3,`rgba(240,238,210,${0.04+p*0.02})`);
+        halo.addColorStop(1,'rgba(0,0,0,0)');
+        cx.fillStyle=halo;cx.fillRect(moonX-165,moonY-165,330,330);
+        // moon disk — full, luminous
+        const moonG=cx.createRadialGradient(moonX-8,moonY-8,0,moonX,moonY,42);
+        moonG.addColorStop(0,'rgba(255,255,240,0.98)');
+        moonG.addColorStop(0.4,'rgba(252,248,220,0.92)');
+        moonG.addColorStop(0.8,'rgba(240,235,200,0.85)');
+        moonG.addColorStop(1,'rgba(220,215,180,0.6)');
+        cx.beginPath();cx.arc(moonX,moonY,42,0,Math.PI*2);cx.fillStyle=moonG;cx.fill();
+        // moon surface craters — faint
+        [[15,-10,8],[-12,14,5],[18,18,6],[-6,-20,4]].forEach(([ox,oy,cr])=>{
+            cx.beginPath();cx.arc(moonX+ox,moonY+oy,cr,0,Math.PI*2);
+            cx.fillStyle='rgba(200,195,165,0.12)';cx.fill();
+        });
+        // pine forest — multiple layers, moon shining through
+        pines.forEach(pine=>{
+            const sw=Math.sin(gt*pine.sway+pine.ph)*8;
+            cx.save();cx.translate(pine.x+sw,H);
+            // trunk
+            cx.beginPath();cx.rect(-4,-pine.h,8,pine.h);
+            cx.fillStyle='rgba(15,12,8,0.92)';cx.fill();
+            // layered canopy
+            for(let l=0;l<pine.layers;l++){
+                const lt=(l/pine.layers);
+                const ly=-pine.h*(0.3+lt*0.65);
+                const lw=pine.spread*(1.1-lt*0.6);
+                cx.beginPath();cx.moveTo(0,ly-lw*0.5);cx.lineTo(-lw,ly+lw*0.5);cx.lineTo(lw,ly+lw*0.5);cx.closePath();
+                cx.fillStyle=`rgba(8,14,8,${0.88+lt*0.06})`;cx.fill();
+            }
+            cx.restore();
+        });
+        // moonlight falling through gaps — vertical columns
+        for(let i=0;i<14;i++){
+            const lx=((i*157+moonX*0.3)%W);
+            const mlg=cx.createLinearGradient(lx,0,lx,H*0.8);
+            mlg.addColorStop(0,`rgba(240,238,210,${0.04+Math.sin(gt*0.008+i)*0.01})`);
+            mlg.addColorStop(1,'rgba(0,0,0,0)');
+            cx.fillStyle=mlg;cx.fillRect(lx-8,0,16,H*0.8);
+        }
+        // forest floor mist
+        mist.forEach(m=>{
+            cx.beginPath();cx.moveTo(0,H);
+            for(let x=0;x<=W;x+=8)cx.lineTo(x,m.y+Math.sin(x*0.005+gt*0.003+m.ph)*m.amp);
+            cx.lineTo(W,H);cx.closePath();
+            cx.fillStyle=`rgba(180,185,200,${0.025*(0.5+p*0.5)})`;cx.fill();
+        });
+    };
+})();
+
+/* ═══ 3 · OLD WELL AT DUSK ══════════════
+   A stone well in long shadow. The rope
+   descends. What is down there was always
+   there. We just didn't look.
+══════════════════════════════════════ */
+(()=>{
+    R[3]=(gt,st,tot)=>{
+        const cx=ctxs[3];const p=ei(st/tot);
+        cx.fillStyle='rgba(4,3,2,0.22)';cx.fillRect(0,0,W,H);
+        // late dusk field — warm amber fading
+        const sky=cx.createLinearGradient(0,0,0,H*0.55);
+        sky.addColorStop(0,`rgba(${Math.floor(L(15,45,p))},${Math.floor(L(8,22,p))},${Math.floor(L(4,8,p))},0.55)`);
+        sky.addColorStop(0.5,`rgba(${Math.floor(L(40,110,p))},${Math.floor(L(20,50,p))},${Math.floor(L(5,12,p))},0.35)`);
+        sky.addColorStop(0.8,`rgba(${Math.floor(L(80,200,p))},${Math.floor(L(40,100,p))},${Math.floor(L(10,20,p))},0.2)`);
+        sky.addColorStop(1,'rgba(0,0,0,0)');
+        cx.fillStyle=sky;cx.fillRect(0,0,W,H*0.55);
+        // sun at horizon — last sliver
+        const sunG=cx.createRadialGradient(W*0.62,H*0.54,0,W*0.62,H*0.54,W*0.2);
+        sunG.addColorStop(0,`rgba(255,${Math.floor(L(130,210,p))},${Math.floor(L(20,50,p))},${0.3+p*0.15})`);
+        sunG.addColorStop(0.5,'rgba(180,70,0,0.06)');sunG.addColorStop(1,'rgba(0,0,0,0)');
+        cx.fillStyle=sunG;cx.fillRect(W*0.35,H*0.35,W*0.5,H*0.25);
+        // long shadow cast by well
+        const shadowLen=(0.5+p*1.5)*W*0.35;
+        const wellX=W*0.45,wellY=H*0.6;
+        cx.beginPath();cx.moveTo(wellX-45,wellY+12);
+        cx.lineTo(wellX-45+shadowLen,wellY+8+shadowLen*0.15);
+        cx.lineTo(wellX+45+shadowLen,wellY+8+shadowLen*0.15);
+        cx.lineTo(wellX+45,wellY+12);cx.closePath();
+        cx.fillStyle=`rgba(0,0,0,${0.3+p*0.15})`;cx.fill();
+        // stone well structure
+        // base ring
+        cx.beginPath();cx.ellipse(wellX,wellY,88,28,0,0,Math.PI*2);cx.fillStyle='rgba(50,40,25,0.95)';cx.fill();
+        cx.strokeStyle='rgba(65,52,32,0.7)';cx.lineWidth=2;cx.stroke();
+        // wall cylinder
+        cx.beginPath();cx.rect(wellX-78,wellY-H*0.14,156,H*0.14);
+        const wallG=cx.createLinearGradient(wellX-78,0,wellX+78,0);
+        wallG.addColorStop(0,'rgba(38,30,18,0.95)');wallG.addColorStop(0.3,'rgba(58,46,28,0.92)');
+        wallG.addColorStop(0.7,'rgba(48,38,22,0.93)');wallG.addColorStop(1,'rgba(32,25,14,0.97)');
+        cx.fillStyle=wallG;cx.fill();
+        // stone rings on wall
+        for(let r=0;r<5;r++){
+            const ry=wellY-H*0.14+r*(H*0.028);
+            cx.beginPath();cx.moveTo(wellX-78,ry);cx.lineTo(wellX+78,ry);
+            cx.strokeStyle='rgba(20,15,8,0.35)';cx.lineWidth=1.2;cx.stroke();
+        }
+        // top rim
+        cx.beginPath();cx.ellipse(wellX,wellY-H*0.14,88,22,0,0,Math.PI*2);cx.fillStyle='rgba(52,42,24,0.97)';cx.fill();
+        cx.strokeStyle='rgba(72,58,34,0.6)';cx.lineWidth=2;cx.stroke();
+        // wooden crossbeam
+        cx.beginPath();cx.rect(wellX-105,wellY-H*0.21,210,14);cx.fillStyle='rgba(45,32,16,0.9)';cx.fill();
+        // support poles
+        [[wellX-85],[wellX+85]].forEach(([px])=>{
+            cx.beginPath();cx.rect(px-6,wellY-H*0.22,12,H*0.1);cx.fillStyle='rgba(38,28,13,0.88)';cx.fill();
+        });
+        // rope descending into darkness
+        const ropeLen=p*H*0.13;
+        cx.beginPath();cx.moveTo(wellX,wellY-H*0.14);
+        for(let y=0;y<=ropeLen;y+=4)cx.lineTo(wellX+Math.sin(y*0.2)*2,wellY-H*0.14+y);
+        cx.strokeStyle='rgba(90,70,40,0.7)';cx.lineWidth=3;cx.stroke();
+        // darkness in well mouth — a circle of pure void
+        const wellMouthG=cx.createRadialGradient(wellX,wellY-H*0.14,0,wellX,wellY-H*0.14,78);
+        wellMouthG.addColorStop(0,'rgba(0,0,0,0.97)');wellMouthG.addColorStop(0.6,'rgba(4,3,2,0.85)');wellMouthG.addColorStop(1,'rgba(0,0,0,0)');
+        cx.beginPath();cx.ellipse(wellX,wellY-H*0.14,80,20,0,0,Math.PI*2);cx.fillStyle=wellMouthG;cx.fill();
+        // reflected glint of last sky in the water far below
+        if(p>0.3){
+            cx.beginPath();cx.ellipse(wellX,wellY-H*0.14+ropeLen+18,16,4,0,0,Math.PI*2);
+            cx.fillStyle=`rgba(255,${Math.floor(L(130,180,p))},40,${(p-0.3)*0.4})`;cx.fill();
+        }
+        // meadow field
+        cx.beginPath();cx.moveTo(0,H);for(let x=0;x<=W;x+=14)cx.lineTo(x,H*0.65+Math.sin(x*0.004)*18);
+        cx.lineTo(W,H);cx.closePath();cx.fillStyle='rgba(10,8,4,0.97)';cx.fill();
+    };
+})();
+
+/* ═══ 4 · HAWK THERMAL RISE ════════════
+   The hawk stops flapping and begins
+   to climb on nothing at all.
+══════════════════════════════════════ */
+(()=>{
+    const cloudPuffs=Array.from({length:12},(_,i)=>({x:rnd(0,W),y:rnd(H*0.05,H*0.35),w:rnd(80,250),h:rnd(30,80),ph:Math.random()*Math.PI*2}));
+    R[4]=(gt,st,tot)=>{
+        const cx=ctxs[4];const p=ei(st/tot);
+        cx.fillStyle='rgba(2,5,12,0.2)';cx.fillRect(0,0,W,H);
+        // sky — vast blue at altitude, warm horizon below
+        const sky=cx.createLinearGradient(0,0,0,H);
+        sky.addColorStop(0,`rgba(${Math.floor(L(8,20,p))},${Math.floor(L(30,80,p))},${Math.floor(L(85,170,p))},0.6)`);
+        sky.addColorStop(0.5,`rgba(${Math.floor(L(20,50,p))},${Math.floor(L(60,130,p))},${Math.floor(L(110,195,p))},0.4)`);
+        sky.addColorStop(0.85,`rgba(${Math.floor(L(80,180,p))},${Math.floor(L(110,175,p))},${Math.floor(L(80,140,p))},0.2)`);
+        sky.addColorStop(1,'rgba(0,0,0,0)');
+        cx.fillStyle=sky;cx.fillRect(0,0,W,H);
+        // thermal column — invisible warm air rising, shown as shimmer
+        const thermalX=W*0.52,thermalW=W*0.18;
+        for(let l=0;l<4;l++){
+            const tg=cx.createLinearGradient(thermalX-thermalW*(0.5+l*0.2),0,thermalX+thermalW*(0.5+l*0.2),0);
+            tg.addColorStop(0,'rgba(0,0,0,0)');
+            tg.addColorStop(0.5,`rgba(255,220,150,${0.012-l*0.002})`);
+            tg.addColorStop(1,'rgba(0,0,0,0)');
+            cx.fillStyle=tg;cx.fillRect(0,0,W,H);
+        }
+        // cumulus clouds forming at top of thermal
+        cloudPuffs.forEach(c=>{
+            c.x+=0.08;if(c.x>W+130)c.x=-130;
+            const cg=cx.createRadialGradient(c.x,c.y,0,c.x,c.y,c.w*0.5);
+            cg.addColorStop(0,`rgba(${Math.floor(L(225,245,p))},${Math.floor(L(228,248,p))},${Math.floor(L(235,255,p))},${0.12+Math.sin(gt*0.005+c.ph)*0.03})`);
+            cg.addColorStop(1,'rgba(0,0,0,0)');
+            cx.fillStyle=cg;cx.fillRect(c.x-c.w*0.6,c.y-c.h*0.6,c.w*1.2,c.h*1.2);
+        });
+        // hawk — a single dark form on a long climbing spiral
+        const spiralAngle=p*Math.PI*5.5;const spiralR=W*0.22*(1-p*0.4);
+        const hawkX=W*0.5+Math.cos(spiralAngle)*spiralR;
+        const hawkY=H*(0.82-p*0.72);// climbs from low to very high
+        const bankAngle=Math.sin(spiralAngle)*0.45;
+        const wingspread=0.92+Math.sin(gt*0.04)*0.06;// gentle soaring, barely moving
+        cx.save();cx.translate(hawkX,hawkY);cx.rotate(Math.atan2(
+            Math.sin(spiralAngle+0.1)*spiralR-(Math.sin(spiralAngle)*spiralR),
+            Math.cos(spiralAngle+0.1)*spiralR-(Math.cos(spiralAngle)*spiralR)
+        )+Math.PI*0.5);cx.rotate(bankAngle);
+        const hawkSz=0.8+p*0.4;cx.scale(hawkSz,hawkSz);
+        // body
+        cx.beginPath();cx.ellipse(0,0,18,6,0,0,Math.PI*2);cx.fillStyle='rgba(12,9,5,0.92)';cx.fill();
+        // tail
+        cx.beginPath();cx.moveTo(-18,0);cx.lineTo(-32,-4);cx.lineTo(-28,0);cx.lineTo(-32,4);cx.closePath();cx.fillStyle='rgba(10,7,4,0.88)';cx.fill();
+        // wings — spread in full soar
+        for(let s=-1;s<=1;s+=2){
+            cx.beginPath();cx.moveTo(0,0);
+            cx.bezierCurveTo(s*15,-2,s*32,-8*wingspread,s*44,-4*wingspread);
+            cx.bezierCurveTo(s*38,4,s*20,5,0,0);
+            cx.fillStyle='rgba(15,11,6,0.88)';cx.fill();
+            // primary feathers
+            for(let f=0;f<5;f++){
+                const fa=0.3+f*0.14;const fr=38+f*3;
+                cx.beginPath();cx.moveTo(s*fr*0.7,-2*wingspread);
+                cx.lineTo(s*fr,-4*wingspread-f*1.5);cx.lineTo(s*fr*0.9,0);
+                cx.fillStyle='rgba(10,8,4,0.7)';cx.fill();
+            }
+        }
+        // head and beak
+        cx.beginPath();cx.arc(18,-1,7,0,Math.PI*2);cx.fillStyle='rgba(14,10,5,0.95)';cx.fill();
+        cx.beginPath();cx.moveTo(24,-2);cx.lineTo(30,-5);cx.lineTo(28,0);cx.closePath();cx.fillStyle='rgba(180,150,80,0.85)';cx.fill();
+        cx.restore();
+        // height indicator — receding ground
+        cx.beginPath();cx.moveTo(0,H);for(let x=0;x<=W;x+=16)cx.lineTo(x,H*(0.88+Math.sin(x*0.003)*0.04));
+        cx.lineTo(W,H);cx.closePath();cx.fillStyle=`rgba(12,18,8,${0.9-p*0.4})`;cx.fill();
+    };
+})();
+
+/* ═══ 5 · TEMPLE BELL AT DAWN ═══════════
+   The bell struck once. The sound
+   expands into the mountain silence.
+   Then the mountain takes it back.
+══════════════════════════════════════ */
+(()=>{
+    const rings=[];let struck=false,strikeGt=0;
+    const mountainLayers=[
+        {pts:Array.from({length:80},(_,i)=>({x:i*(W/79),y:H*0.45+Math.sin(i*0.08)*H*0.08+Math.sin(i*0.035+1)*H*0.06})),shade:'6,8,16',al:0.97},
+        {pts:Array.from({length:80},(_,i)=>({x:i*(W/79),y:H*0.52+Math.sin(i*0.07+0.5)*H*0.07+Math.sin(i*0.028+2)*H*0.05})),shade:'4,6,12',al:0.92},
+        {pts:Array.from({length:80},(_,i)=>({x:i*(W/79),y:H*0.6+Math.sin(i*0.06+1)*H*0.06})),shade:'3,4,8',al:0.9},
+    ];
+    R[5]=(gt,st,tot)=>{
+        const cx=ctxs[5];const p=ei(st/tot);
+        cx.fillStyle='rgba(2,3,6,0.22)';cx.fillRect(0,0,W,H);
+        // pre-dawn sky becoming dawn
+        const sky=cx.createLinearGradient(0,0,0,H*0.55);
+        sky.addColorStop(0,`rgba(${Math.floor(L(4,25,p))},${Math.floor(L(4,15,p))},${Math.floor(L(16,42,p))},0.6)`);
+        sky.addColorStop(0.5,`rgba(${Math.floor(L(12,70,p))},${Math.floor(L(8,30,p))},${Math.floor(L(20,35,p))},0.4)`);
+        sky.addColorStop(0.8,`rgba(${Math.floor(L(30,180,p))},${Math.floor(L(15,80,p))},${Math.floor(L(8,18,p))},0.25)`);
+        sky.addColorStop(1,'rgba(0,0,0,0)');
+        cx.fillStyle=sky;cx.fillRect(0,0,W,H*0.55);
+        // first star fading
+        cx.beginPath();cx.arc(W*0.72,H*0.12,3,0,Math.PI*2);
+        cx.fillStyle=`rgba(255,255,220,${Math.max(0,0.6-p)})`;cx.fill();
+        // strike happens at p=0.2
+        if(p>=0.2&&!struck){struck=true;strikeGt=gt;for(let i=0;i<6;i++)rings.push({r:0,al:0.85,spd:rnd(1.8,3.2),delay:i*12});}
+        // expanding sound rings
+        rings.forEach(r=>{
+            const age=gt-strikeGt-r.delay;if(age<0)return;
+            r.r=age*r.spd;r.al=Math.max(0,0.85*(1-r.r/(W*0.72)));
+            if(r.al<0.01)return;
+            cx.beginPath();cx.ellipse(W*0.5,H*0.46,r.r*1.6,r.r*0.55,0,0,Math.PI*2);
+            cx.strokeStyle=`rgba(220,210,180,${r.al*0.35})`;cx.lineWidth=1.8;cx.stroke();
+            // inner harmonic
+            cx.beginPath();cx.ellipse(W*0.5,H*0.46,r.r,r.r*0.34,0,0,Math.PI*2);
+            cx.strokeStyle=`rgba(200,190,155,${r.al*0.15})`;cx.lineWidth=1;cx.stroke();
+        });
+        // temple bell structure
+        const bx=W*0.5,by=H*0.4;
+        // hang beam
+        cx.beginPath();cx.rect(bx-80,by-H*0.12,160,16);cx.fillStyle='rgba(40,30,15,0.92)';cx.fill();
+        // bell body
+        cx.beginPath();cx.moveTo(bx-44,by);
+        cx.bezierCurveTo(bx-48,by+H*0.04,bx-50,by+H*0.08,bx-42,by+H*0.12);
+        cx.lineTo(bx+42,by+H*0.12);
+        cx.bezierCurveTo(bx+50,by+H*0.08,bx+48,by+H*0.04,bx+44,by);cx.closePath();
+        const bellG=cx.createLinearGradient(bx-50,0,bx+50,0);
+        bellG.addColorStop(0,'rgba(70,52,22,0.95)');bellG.addColorStop(0.3,'rgba(110,82,34,0.92)');
+        bellG.addColorStop(0.7,'rgba(88,66,26,0.94)');bellG.addColorStop(1,'rgba(58,42,16,0.97)');
+        cx.fillStyle=bellG;cx.fill();
+        // bell rim ring
+        cx.beginPath();cx.ellipse(bx,by+H*0.12,42,10,0,0,Math.PI*2);cx.strokeStyle='rgba(80,60,24,0.6)';cx.lineWidth=4;cx.stroke();
+        // strike marks
+        const strikeAl=p>=0.2?Math.max(0,0.6-((gt-strikeGt)/40)):0;
+        if(strikeAl>0){
+            const sGlow=cx.createRadialGradient(bx+35,by+H*0.06,0,bx+35,by+H*0.06,35);
+            sGlow.addColorStop(0,`rgba(255,220,120,${strikeAl*0.5})`);sGlow.addColorStop(1,'rgba(0,0,0,0)');
+            cx.fillStyle=sGlow;cx.fillRect(bx,by,80,H*0.14);
+        }
+        // mountain silhouettes
+        mountainLayers.forEach(ml=>{
+            cx.beginPath();cx.moveTo(0,H);
+            ml.pts.forEach(pt=>cx.lineTo(pt.x,pt.y));
+            cx.lineTo(W,H);cx.closePath();
+            cx.fillStyle=`rgba(${ml.shade},${ml.al})`;cx.fill();
+        });
+        // mist in valleys
+        for(let i=0;i<6;i++){
+            const my=H*0.58+i*H*0.04;
+            cx.beginPath();cx.moveTo(0,H);
+            for(let x=0;x<=W;x+=10)cx.lineTo(x,my+Math.sin(x*0.005+gt*0.003+i*0.5)*14);
+            cx.lineTo(W,H);cx.closePath();
+            cx.fillStyle=`rgba(180,188,200,${0.025+i*0.006})`;cx.fill();
+        }
+    };
+})();
+
+/* ═══ 6 · RIVER BENDS PAST ROCK ═════════
+   The river meets a boulder it cannot
+   move. It does not argue. It curves.
+══════════════════════════════════════ */
+(()=>{
+    const currentPts=Array.from({length:30},(_,i)=>({y:H*(0.15+i*0.025),ph:i*0.22,spd:0.01+i*0.002}));
+    const foamBubbles=Array.from({length:80},()=>({x:rnd(0,W),y:rnd(H*0.2,H*0.85),vx:rnd(0.5,2),vy:(Math.random()-0.5)*0.3,sz:rnd(2,8),ph:Math.random()*Math.PI*2}));
+    R[6]=(gt,st,tot)=>{
+        const cx=ctxs[6];const p=ei(st/tot);
+        cx.fillStyle='rgba(1,4,8,0.2)';cx.fillRect(0,0,W,H);
+        // river — deep green-blue moving water
+        const riverG=cx.createLinearGradient(0,0,0,H);
+        riverG.addColorStop(0,`rgba(${Math.floor(L(8,18,p))},${Math.floor(L(38,70,p))},${Math.floor(L(55,90,p))},0.55)`);
+        riverG.addColorStop(0.5,`rgba(${Math.floor(L(5,12,p))},${Math.floor(L(28,55,p))},${Math.floor(L(45,78,p))},0.4)`);
+        riverG.addColorStop(1,'rgba(2,10,20,0.25)');
+        cx.fillStyle=riverG;cx.fillRect(0,0,W,H);
+        // current lines bending around the rock
+        const rockX=W*0.48,rockY=H*0.52,rockR=H*0.12;
+        currentPts.forEach(c=>{
+            cx.beginPath();cx.moveTo(-30,c.y);
+            for(let x=0;x<=W+30;x+=12){
+                const dx=x-rockX;const dy=c.y-rockY;
+                const dist=Math.sqrt(dx*dx+dy*dy);
+                const deflect=dist<rockR*2.5?Math.exp(-dist/(rockR*1.5))*rockR*0.6*Math.sign(dy||1):0;
+                cx.lineTo(x,c.y+deflect+Math.sin(x*0.006+gt*c.spd+c.ph)*8*(1+deflect*0.02));
+            }
+            cx.strokeStyle=`rgba(${Math.floor(L(60,100,p))},${Math.floor(L(150,200,p))},${Math.floor(L(180,230,p))},${0.05+Math.sin(c.ph)*0.02})`;
+            cx.lineWidth=1.2;cx.stroke();
+        });
+        // white water / turbulence around rock
+        for(let a=0;a<Math.PI*2;a+=0.18){
+            const foam_r=rockR+(0.8+Math.sin(gt*0.06+a)*0.2)*H*0.06;
+            const fx=rockX+Math.cos(a)*foam_r,fy=rockY+Math.sin(a)*foam_r*0.5;
+            if(a>Math.PI*0.15&&a<Math.PI*0.85)continue;// only upstream turbulence
+            cx.beginPath();cx.arc(fx,fy,rnd(3,12),0,Math.PI*2);
+            cx.fillStyle=`rgba(220,235,248,${0.15+Math.sin(gt*0.08+a)*0.08})`;cx.fill();
+        }
+        // foam bubbles drifting downstream
+        foamBubbles.forEach(f=>{
+            const dx=f.x-rockX;const dy=f.y-rockY;
+            const dist=Math.sqrt(dx*dx+dy*dy);
+            const deflect=dist<rockR*3?dy/dist*0.8:0;
+            f.x+=f.vx;f.y+=f.vy+deflect;
+            if(f.x>W+20)f.x=-20;
+            const tw=Math.sin(gt*0.05+f.ph)*0.3+0.7;
+            cx.beginPath();cx.arc(f.x,f.y,f.sz*tw*0.6,0,Math.PI*2);
+            cx.fillStyle=`rgba(210,230,248,${0.2*tw})`;cx.fill();
+        });
+        // the rock itself
+        const rockG=cx.createRadialGradient(rockX-rockR*0.2,rockY-rockR*0.2,0,rockX,rockY,rockR*1.1);
+        rockG.addColorStop(0,'rgba(55,50,42,0.97)');rockG.addColorStop(0.4,'rgba(40,36,28,0.95)');rockG.addColorStop(0.8,'rgba(30,26,20,0.96)');rockG.addColorStop(1,'rgba(20,18,13,0.98)');
+        cx.beginPath();cx.arc(rockX,rockY,rockR,0,Math.PI*2);cx.fillStyle=rockG;cx.fill();
+        // lichen on rock
+        for(let i=0;i<5;i++){
+            const la=(i/5)*Math.PI;const lr=rockR*(0.4+Math.random()*0.4);
+            cx.beginPath();cx.arc(rockX+Math.cos(la)*lr,rockY+Math.sin(la)*lr*0.7,rnd(5,14),0,Math.PI*2);
+            cx.fillStyle=`rgba(${Math.floor(rnd(45,75))},${Math.floor(rnd(60,90))},${Math.floor(rnd(25,50))},0.35)`;cx.fill();
+        }
+        // river banks — dark earth and reeds
+        cx.beginPath();cx.rect(0,0,W*0.06,H);cx.fillStyle='rgba(8,10,5,0.97)';cx.fill();
+        cx.beginPath();cx.rect(W*0.94,0,W*0.06,H);cx.fillStyle='rgba(8,10,5,0.97)';cx.fill();
+    };
+})();
+
+/* ═══ 7 · FIRST SNOW ON EMBERS ══════════
+   The last heat and the first cold
+   meeting without violence.
+══════════════════════════════════════ */
+(()=>{
+    const snowflakes=Array.from({length:300},()=>({x:rnd(0,W),y:rnd(-H,H*0.5),vy:rnd(0.6,2),vx:(Math.random()-0.5)*0.4,sz:rnd(1.5,5),ph:Math.random()*Math.PI*2}));
+    const emberGlow=Array.from({length:30},(_,i)=>({x:W*0.2+i*(W*0.6/29)+rnd(-15,15),y:H*0.7+rnd(-8,8),r:rnd(12,35),ph:Math.random()*Math.PI*2}));
+    R[7]=(gt,st,tot)=>{
+        const cx=ctxs[7];const p=ei(st/tot);
+        cx.fillStyle='rgba(3,3,4,0.22)';cx.fillRect(0,0,W,H);
+        // cold night sky
+        const sky=cx.createLinearGradient(0,0,0,H*0.65);
+        sky.addColorStop(0,`rgba(${Math.floor(L(5,12,p))},${Math.floor(L(6,14,p))},${Math.floor(L(12,22,p))},0.55)`);
+        sky.addColorStop(1,'rgba(0,0,0,0)');
+        cx.fillStyle=sky;cx.fillRect(0,0,W,H*0.65);
+        // ember bed — the last fire, dying
+        const heatLine=H*0.65;
+        // coals — orange fading to dark
+        emberGlow.forEach(e=>{
+            const heat=Math.max(0.05,0.7-p*0.55)*Math.sin(gt*0.03+e.ph)*0.3+Math.max(0.05,0.7-p*0.55)*0.7;
+            const eg=cx.createRadialGradient(e.x,e.y,0,e.x,e.y,e.r*(0.8+heat*0.4));
+            eg.addColorStop(0,`rgba(255,${Math.floor(L(120,200,heat))},${Math.floor(L(0,20,heat))},${heat*0.85})`);
+            eg.addColorStop(0.4,`rgba(200,${Math.floor(L(50,100,heat))},0,${heat*0.35})`);
+            eg.addColorStop(1,'rgba(0,0,0,0)');
+            cx.fillStyle=eg;cx.fillRect(e.x-e.r*1.5,e.y-e.r*1.5,e.r*3,e.r*3);
+        });
+        // ash layer
+        cx.beginPath();cx.rect(W*0.08,heatLine-12,W*0.84,H*0.08);
+        const ashG=cx.createLinearGradient(0,heatLine-12,0,heatLine+H*0.08);
+        ashG.addColorStop(0,`rgba(${Math.floor(L(55,35,p))},${Math.floor(L(50,30,p))},${Math.floor(L(45,25,p))},0.9)`);
+        ashG.addColorStop(1,'rgba(20,15,10,0.95)');
+        cx.fillStyle=ashG;cx.fill();
+        // snowflakes falling
+        snowflakes.forEach(s=>{
+            s.y+=s.vy;s.x+=s.vx+Math.sin(gt*0.01+s.ph)*0.3;
+            if(s.y>H+10)s.y=-10;
+            const tw=Math.sin(gt*0.04+s.ph)*0.2+0.8;
+            // snowflakes near embers get a warm glow edge
+            const nearHeat=s.y>heatLine-80&&s.y<heatLine+20;
+            if(nearHeat&&s.y>heatLine-30){
+                // snow melts on contact — disappears
+            }else{
+                cx.beginPath();cx.arc(s.x,s.y,s.sz*tw,0,Math.PI*2);
+                cx.fillStyle=nearHeat?`rgba(255,220,180,${tw*0.4})`:
+                    `rgba(220,228,240,${tw*0.45})`;cx.fill();
+            }
+        });
+        // steam where snow meets embers
+        for(let i=0;i<8;i++){
+            const sx=W*0.15+i*(W*0.7/7)+Math.sin(gt*0.02+i)*15;
+            const sg=cx.createRadialGradient(sx,heatLine,0,sx,heatLine-25,25);
+            sg.addColorStop(0,`rgba(200,205,210,${0.08*(0.5+p*0.5)})`);sg.addColorStop(1,'rgba(0,0,0,0)');
+            cx.fillStyle=sg;cx.fillRect(sx-30,heatLine-50,60,55);
+        }
+        // snow accumulating on cold surfaces
+        const snowDepth=p*14;
+        cx.beginPath();cx.rect(0,H*0.2,W,snowDepth);
+        cx.fillStyle=`rgba(215,222,235,${p*0.35})`;cx.fill();
+        // ground
+        cx.beginPath();cx.rect(0,H*0.8,W,H*0.2);cx.fillStyle='rgba(6,5,4,0.97)';cx.fill();
+    };
+})();
+
+/* ═══ 8 · CUTTLEFISH CAMOUFLAGE ═════════
+   Rippling color waves across its skin —
+   the self worn as a conversation.
+══════════════════════════════════════ */
+(()=>{
+    R[8]=(gt,st,tot)=>{
+        const cx=ctxs[8];const p=ei(st/tot);
+        cx.fillStyle='rgba(1,3,6,0.22)';cx.fillRect(0,0,W,H);
+        // ocean floor — sand with pebbles
+        const floorG=cx.createLinearGradient(0,H*0.55,0,H);
+        floorG.addColorStop(0,`rgba(${Math.floor(L(55,70,p))},${Math.floor(L(48,62,p))},${Math.floor(L(32,44,p))},0.88)`);
+        floorG.addColorStop(1,'rgba(25,20,12,0.97)');
+        cx.fillStyle=floorG;cx.fillRect(0,H*0.55,W,H*0.45);
+        for(let i=0;i<35;i++){
+            const px=((i*337)%W),py=H*0.58+((i*197)%(H*0.4));
+            cx.beginPath();cx.ellipse(px,py,rnd(4,14),rnd(3,8),rnd(0,Math.PI),0,Math.PI*2);
+            cx.fillStyle=`rgba(${Math.floor(rnd(42,68))},${Math.floor(rnd(36,58))},${Math.floor(rnd(22,38))},0.5)`;cx.fill();
+        }
+        // water column
+        const waterG=cx.createLinearGradient(0,0,0,H*0.58);
+        waterG.addColorStop(0,`rgba(${Math.floor(L(5,15,p))},${Math.floor(L(28,58,p))},${Math.floor(L(55,105,p))},0.5)`);
+        waterG.addColorStop(1,'rgba(0,0,0,0)');
+        cx.fillStyle=waterG;cx.fillRect(0,0,W,H*0.58);
+        // THE CUTTLEFISH — centered, detailed
+        const cfX=W*0.5,cfY=H*0.5;
+        // mantle (main body) — oval
+        cx.save();cx.translate(cfX,cfY);
+        // base mantle shape
+        cx.beginPath();cx.ellipse(0,0,W*0.14,H*0.2,0,0,Math.PI*2);
+        // color wave pattern — hue shifts across skin
+        for(let strip=-18;strip<=18;strip++){
+            const sx=strip*(W*0.14/18);const sw=W*0.14/17;
+            const waveHue=Math.sin(strip*0.3+gt*0.04)*60+p*360;
+            const brightness=45+Math.sin(strip*0.5+gt*0.05)*18;
+            cx.beginPath();
+            for(let y=-H*0.2;y<=H*0.2;y+=4)cx.lineTo(sx+Math.sin(y*0.03+gt*0.03)*4,y);
+            cx.lineTo(sx+sw,H*0.2);
+            for(let y=H*0.2;y>=-H*0.2;y-=4)cx.lineTo(sx+sw+Math.sin(y*0.03+gt*0.03)*4,y);
+            cx.closePath();
+            cx.fillStyle=`hsla(${waveHue%360},70%,${brightness}%,0.7)`;cx.fill();
+        }
+        // fin — undulating membrane along body edge
+        cx.beginPath();cx.moveTo(-W*0.14,0);
+        for(let y=-H*0.18;y<=H*0.18;y+=6){
+            const finX=W*0.14+Math.sin(y*0.04+gt*0.05)*W*0.025+W*0.01;
+            cx.lineTo(finX,y);
+        }
+        for(let y=H*0.18;y>=-H*0.18;y-=6){
+            const finX=W*0.14+Math.sin(y*0.04+gt*0.05+0.5)*W*0.02+W*0.006;
+            cx.lineTo(-finX,y);
+        }
+        cx.closePath();
+        cx.fillStyle=`hsla(${(gt*2)%360},55%,45%,0.35)`;cx.fill();
+        // tentacles
+        for(let t=0;t<10;t++){
+            const ta=-Math.PI*0.4+(t/9)*Math.PI*0.8;
+            const tlen=H*0.14+rnd(0,H*0.04);
+            cx.beginPath();cx.moveTo(0,H*0.19);
+            cx.quadraticCurveTo(Math.cos(ta)*tlen*0.4,H*0.19+tlen*0.5,
+                Math.cos(ta)*tlen,H*0.19+tlen);
+            cx.strokeStyle=`hsla(${(t*36+gt*3)%360},65%,40%,0.6)`;cx.lineWidth=4-t*0.2;cx.stroke();
+        }
+        // two longer feeding tentacles
+        for(let t=-1;t<=1;t+=2){
+            cx.beginPath();cx.moveTo(t*20,H*0.19);
+            cx.bezierCurveTo(t*30,H*0.32,t*t*20,H*0.42,t*35+Math.sin(gt*0.06)*20,H*0.48);
+            cx.strokeStyle=`hsla(${(gt*4)%360},70%,45%,0.55)`;cx.lineWidth=5;cx.stroke();
+            cx.beginPath();cx.ellipse(t*35+Math.sin(gt*0.06)*20,H*0.48,14,5,0,0,Math.PI*2);
+            cx.fillStyle=`hsla(${(gt*4+90)%360},65%,50%,0.5)`;cx.fill();
+        }
+        // eyes — intelligent, alien
+        for(let e=-1;e<=1;e+=2){
+            cx.beginPath();cx.ellipse(e*W*0.09,-H*0.04,18,14,0,0,Math.PI*2);
+            cx.fillStyle='rgba(220,215,180,0.85)';cx.fill();
+            cx.beginPath();cx.ellipse(e*W*0.09,-H*0.04,8,12,0.1,0,Math.PI*2);
+            cx.fillStyle='rgba(8,5,2,0.95)';cx.fill();
+            cx.beginPath();cx.arc(e*W*0.09-4,-H*0.05,3,0,Math.PI*2);
+            cx.fillStyle='rgba(255,255,240,0.4)';cx.fill();
+        }
+        cx.restore();
+        // ink cloud trailing (if startled)
+        if(p>0.7){
+            const inkG=cx.createRadialGradient(cfX+W*0.12,cfY,0,cfX+W*0.18,cfY,80*(p-0.7)*5);
+            inkG.addColorStop(0,`rgba(5,2,12,${(p-0.7)*0.8})`);inkG.addColorStop(1,'rgba(0,0,0,0)');
+            cx.fillStyle=inkG;cx.fillRect(cfX,cfY-100,W*0.4,200);
+        }
+        // caustic light
+        for(let i=0;i<8;i++){
+            const cx2c=((i*234+gt*2)%W),cy=((i*197)%(H*0.5));
+            const cg=cx.createRadialGradient(cx2c,cy,0,cx2c,cy,rnd(15,35));
+            cg.addColorStop(0,`rgba(100,180,200,${0.04+Math.sin(gt*0.05+i)*0.02})`);cg.addColorStop(1,'rgba(0,0,0,0)');
+            cx.fillStyle=cg;cx.fillRect(cx2c-40,cy-40,80,80);
+        }
+    };
+})();
+
+/* ═══ 9 · OLD BRIDGE IN FLOOD ═══════════
+   Built for exactly this.
+   The river rages. The arch holds.
+══════════════════════════════════════ */
+(()=>{
+    const debris=Array.from({length:25},()=>({x:rnd(-100,W*0.3),y:rnd(H*0.48,H*0.72),vx:rnd(2,6),vy:(Math.random()-0.5)*0.8,rot:rnd(0,Math.PI*2),vrot:rnd(-0.04,0.04),w:rnd(15,55),h:rnd(6,14)}));
+    R[9]=(gt,st,tot)=>{
+        const cx=ctxs[9];const p=ei(st/tot);
+        cx.fillStyle='rgba(3,5,7,0.2)';cx.fillRect(0,0,W,H);
+        // storm sky — dark, churning
+        const sky=cx.createLinearGradient(0,0,0,H*0.5);
+        sky.addColorStop(0,`rgba(${Math.floor(L(8,18,p))},${Math.floor(L(9,18,p))},${Math.floor(L(10,16,p))},0.65)`);
+        sky.addColorStop(0.5,'rgba(14,16,14,0.4)');sky.addColorStop(1,'rgba(0,0,0,0)');
+        cx.fillStyle=sky;cx.fillRect(0,0,W,H*0.5);
+        // flood water — brown, fast, turbulent
+        const waterLevel=H*(0.38+p*0.14);// rises with p
+        cx.beginPath();cx.moveTo(-30,H);
+        for(let x=-30;x<=W+30;x+=8)cx.lineTo(x,waterLevel+Math.sin(x*0.012+gt*0.04)*22+Math.sin(x*0.028+gt*0.06)*10);
+        cx.lineTo(W+30,H);cx.closePath();
+        const floodG=cx.createLinearGradient(0,waterLevel,0,H);
+        floodG.addColorStop(0,`rgba(${Math.floor(L(60,80,p))},${Math.floor(L(42,55,p))},${Math.floor(L(18,22,p))},0.92)`);
+        floodG.addColorStop(0.3,`rgba(${Math.floor(L(45,60,p))},${Math.floor(L(30,42,p))},${Math.floor(L(12,16,p))},0.96)`);
+        floodG.addColorStop(1,'rgba(20,14,6,0.98)');cx.fillStyle=floodG;cx.fill();
+        // white water chop on surface
+        for(let i=0;i<20;i++){
+            const wx=rnd(0,W),wy=waterLevel+rnd(0,25);
+            cx.beginPath();cx.ellipse(wx,wy,rnd(8,30),rnd(2,5),0,0,Math.PI*2);
+            cx.fillStyle=`rgba(200,195,175,${0.12+Math.random()*0.1})`;cx.fill();
+        }
+        // floating debris
+        debris.forEach(d=>{d.x+=d.vx*(0.5+p);d.y+=d.vy;d.rot+=d.vrot;
+            if(d.x>W+60)d.x=-60;
+            cx.save();cx.translate(d.x,d.y+waterLevel-H*0.48+Math.sin(d.x*0.01+gt*0.04)*8);cx.rotate(d.rot);
+            cx.beginPath();cx.rect(-d.w/2,-d.h/2,d.w,d.h);cx.fillStyle='rgba(35,25,12,0.8)';cx.fill();cx.restore();
+        });
+        // stone arch bridge — the solid, enduring thing
+        const bridgeY=H*0.52;const archW=W*0.35;const archCX=W*0.5;
+        // arch body
+        cx.beginPath();cx.moveTo(archCX-archW*0.5-20,bridgeY);
+        cx.lineTo(archCX-archW*0.5-20,bridgeY+H*0.25);
+        cx.lineTo(archCX+archW*0.5+20,bridgeY+H*0.25);
+        cx.lineTo(archCX+archW*0.5+20,bridgeY);
+        // arch cutout
+        cx.arc(archCX,bridgeY,archW*0.38,Math.PI,0,true);
+        cx.closePath();
+        const bridgeG=cx.createLinearGradient(archCX-archW*0.5,0,archCX+archW*0.5,0);
+        bridgeG.addColorStop(0,'rgba(52,44,30,0.97)');bridgeG.addColorStop(0.4,'rgba(68,58,38,0.95)');
+        bridgeG.addColorStop(0.7,'rgba(60,50,33,0.96)');bridgeG.addColorStop(1,'rgba(46,38,25,0.98)');
+        cx.fillStyle=bridgeG;cx.fill();
+        // bridge deck on top
+        cx.beginPath();cx.rect(archCX-archW*0.5-25,bridgeY-22,archW+50,22);
+        cx.fillStyle='rgba(58,49,32,0.97)';cx.fill();
+        // stone block lines
+        for(let c=0;c<8;c++){
+            const cx2b=archCX-archW*0.5+c*(archW/7);
+            cx.beginPath();cx.moveTo(cx2b,bridgeY-22);cx.lineTo(cx2b,bridgeY);
+            cx.strokeStyle='rgba(28,22,12,0.3)';cx.lineWidth=1.5;cx.stroke();
+        }
+        // keystone highlight
+        cx.beginPath();cx.moveTo(archCX-15,bridgeY);cx.lineTo(archCX,bridgeY-18);cx.lineTo(archCX+15,bridgeY);cx.closePath();
+        cx.fillStyle='rgba(75,65,42,0.95)';cx.fill();
+        // river banks and canyon walls
+        cx.beginPath();cx.rect(0,0,archCX-archW*0.5-20,H);cx.fillStyle='rgba(22,18,10,0.97)';cx.fill();
+        cx.beginPath();cx.rect(archCX+archW*0.5+20,0,W,H);cx.fillStyle='rgba(22,18,10,0.97)';cx.fill();
+        // rain
+        for(let i=0;i<80;i++){
+            const rx=rnd(0,W),ry=rnd(0,H);
+            cx.beginPath();cx.moveTo(rx,ry);cx.lineTo(rx-2,ry+20);
+            cx.strokeStyle=`rgba(140,155,170,${0.08+p*0.05})`;cx.lineWidth=0.7;cx.stroke();
+        }
+    };
+})();
+
+/* ═══ 10 · BURNING ARROW ARC ════════════
+   Drawn. Released. The archer's work
+   is done. The arrow knows the rest.
+══════════════════════════════════════ */
+(()=>{
+    R[10]=(gt,st,tot)=>{
+        const cx=ctxs[10];const p=ei(st/tot);
+        cx.fillStyle='rgba(2,2,4,0.22)';cx.fillRect(0,0,W,H);
+        // night battlefield — dark, minimal
+        const bg=cx.createLinearGradient(0,0,0,H);
+        bg.addColorStop(0,'rgba(2,2,6,0.5)');bg.addColorStop(0.6,'rgba(4,4,8,0.3)');bg.addColorStop(1,'rgba(1,1,3,0.2)');
+        cx.fillStyle=bg;cx.fillRect(0,0,W,H);
+        // stars — cold and indifferent
+        for(let i=0;i<80;i++){
+            const sx=((i*337)%W),sy=((i*197)%(H*0.55));
+            cx.beginPath();cx.arc(sx,sy,rnd(0.3,1.2),0,Math.PI*2);
+            cx.fillStyle=`rgba(255,255,255,${0.3+Math.sin(gt*0.04+i)*0.12})`;cx.fill();
+        }
+        // arrow trajectory — parabolic arc
+        // p=0: arrow at bow / p=0.5: mid-flight / p=1: impact at far right
+        const arrowX=L(W*0.08,W*0.95,p);
+        const arcHeight=H*0.35*Math.sin(p*Math.PI);// parabolic
+        const arrowY=H*0.62-arcHeight;
+        const vx=1;const vy=Math.cos(p*Math.PI)*(-0.6);// direction tangent to arc
+        const flightAngle=Math.atan2(vy,vx);
+        // arrow trail — fire trail
+        const trailLen=Math.min(arrowX-W*0.08,W*0.25);
+        for(let t=0;t<40;t++){
+            const tt=t/40;const tpast=Math.max(0,p-tt*0.12);
+            const tx=L(W*0.08,W*0.95,tpast);
+            const ty=H*0.62-H*0.35*Math.sin(tpast*Math.PI);
+            const alpha=tt<0.3?tt/0.3*0.6:0.6*(1-tt);
+            const fireHue=rnd(15,45);
+            cx.beginPath();cx.arc(tx,ty,3*(1-tt)+1,0,Math.PI*2);
+            cx.fillStyle=`hsla(${fireHue},95%,${55+tt*20}%,${alpha})`;cx.fill();
+        }
+        // arrow itself
+        cx.save();cx.translate(arrowX,arrowY);cx.rotate(flightAngle);
+        // shaft
+        cx.beginPath();cx.moveTo(-50,0);cx.lineTo(30,0);
+        cx.strokeStyle='rgba(80,60,25,0.9)';cx.lineWidth=4;cx.stroke();
+        // fire on shaft — burning
+        for(let f=0;f<8;f++){
+            const fx=-40+f*6;const ffg=cx.createRadialGradient(fx,0,0,fx,0,10-f*0.8);
+            ffg.addColorStop(0,`rgba(255,${Math.floor(rnd(150,220))},20,0.7)`);ffg.addColorStop(1,'rgba(0,0,0,0)');
+            cx.fillStyle=ffg;cx.fillRect(fx-11,-11,22,22);
+        }
+        // arrowhead
+        cx.beginPath();cx.moveTo(30,0);cx.lineTo(22,-4);cx.lineTo(22,4);cx.closePath();
+        cx.fillStyle='rgba(160,155,140,0.9)';cx.fill();
+        // fletching
+        cx.beginPath();cx.moveTo(-48,0);cx.lineTo(-56,-9);cx.lineTo(-52,0);cx.moveTo(-48,0);cx.lineTo(-56,9);cx.lineTo(-52,0);
+        cx.fillStyle='rgba(50,30,10,0.8)';cx.fill();
+        cx.restore();
+        // impact flash at end
+        if(p>0.95){
+            const imp=cx.createRadialGradient(W*0.95,H*0.62,0,W*0.95,H*0.62,80*(p-0.95)*20);
+            imp.addColorStop(0,`rgba(255,200,60,${(p-0.95)*8})`);imp.addColorStop(1,'rgba(0,0,0,0)');
+            cx.fillStyle=imp;cx.fillRect(W*0.75,H*0.42,W*0.25,H*0.4);
+        }
+        // distant archer silhouette — still, bow at side
+        cx.save();cx.translate(W*0.06,H*0.55);
+        cx.beginPath();cx.arc(0,0,10,0,Math.PI*2);cx.fillStyle='rgba(6,5,3,0.9)';cx.fill();
+        cx.beginPath();cx.rect(-6,10,12,H*0.14);cx.fillStyle='rgba(5,4,2,0.88)';cx.fill();
+        // bow — released, arm lowering
+        const armAngle=p*0.6;
+        cx.beginPath();cx.moveTo(6,15);cx.lineTo(6+Math.cos(armAngle-0.3)*40,15+Math.sin(armAngle-0.3)*40);
+        cx.strokeStyle='rgba(40,30,14,0.8)';cx.lineWidth=5;cx.stroke();
+        cx.restore();
+        // dark horizon
+        cx.beginPath();cx.moveTo(0,H);for(let x=0;x<=W;x+=14)cx.lineTo(x,H*0.7+Math.sin(x*0.004)*18);
+        cx.lineTo(W,H);cx.closePath();cx.fillStyle='rgba(4,3,2,0.97)';cx.fill();
+    };
+})();
+
+/* ═══ 11 · AURORA OVER FROZEN LAKE ══════
+   Light that belongs to no one,
+   witnessed by no one, still happening.
+══════════════════════════════════════ */
+(()=>{
+    const auroraBands=Array.from({length:10},(_,i)=>({ph:i*0.65,spd:0.006+i*0.0025,amp:38+i*22,hue:130+i*22,y:H*0.06+i*H*0.072}));
+    const iceBlocks=Array.from({length:20},(_,i)=>({x:rnd(W*0.03,W*0.97),y:H*0.72+rnd(0,H*0.2),w:rnd(30,100),h:rnd(4,14),angle:rnd(-0.15,0.15)}));
+    R[11]=(gt,st,tot)=>{
+        const cx=ctxs[11];const p=ei(st/tot);
+        cx.fillStyle='rgba(0,2,6,0.2)';cx.fillRect(0,0,W,H);
+        // deep arctic night sky
+        const sky=cx.createLinearGradient(0,0,0,H*0.7);
+        sky.addColorStop(0,'rgba(0,3,12,0.6)');sky.addColorStop(0.5,'rgba(0,5,18,0.4)');sky.addColorStop(1,'rgba(0,0,0,0)');
+        cx.fillStyle=sky;cx.fillRect(0,0,W,H*0.7);
+        // stars
+        for(let i=0;i<200;i++){
+            const sx=((i*337)%W),sy=((i*197)%(H*0.68));
+            const tw=Math.sin(gt*0.04+i)*0.25+0.75;
+            cx.beginPath();cx.arc(sx,sy,rnd(0.2,1.5)*tw,0,Math.PI*2);
+            cx.fillStyle=`rgba(255,255,255,${tw*0.5})`;cx.fill();
+        }
+        // aurora curtains — vertical waving ribbons of light
+        auroraBands.forEach((b,i)=>{
+            const shimmer=ei(p)*(0.6+Math.sin(gt*0.01+i*0.8)*0.4);
+            if(shimmer<0.02)return;
+            cx.beginPath();cx.moveTo(0,b.y);
+            for(let x=0;x<=W;x+=6)cx.lineTo(x,b.y+Math.sin(x*0.0025+gt*b.spd+b.ph)*b.amp);
+            for(let x=W;x>=0;x-=6)cx.lineTo(x,b.y+H*0.055+Math.sin(x*0.0025+gt*b.spd+b.ph+0.4)*b.amp*0.6);
+            cx.closePath();
+            const ag=cx.createLinearGradient(0,b.y-b.amp,0,b.y+H*0.055+b.amp);
+            ag.addColorStop(0,`hsla(${b.hue},85%,58%,0)`);
+            ag.addColorStop(0.3,`hsla(${b.hue},90%,62%,${0.28*shimmer})`);
+            ag.addColorStop(0.7,`hsla(${b.hue+25},85%,68%,${0.18*shimmer})`);
+            ag.addColorStop(1,`hsla(${b.hue+40},80%,60%,0)`);
+            cx.fillStyle=ag;cx.fill();
+        });
+        // frozen lake
+        const lakeY=H*0.68;
+        cx.beginPath();cx.moveTo(0,lakeY);for(let x=0;x<=W;x+=12)cx.lineTo(x,lakeY+Math.sin(x*0.004)*6);
+        cx.lineTo(W,H);cx.lineTo(0,H);cx.closePath();
+        const lakeG=cx.createLinearGradient(0,lakeY,0,H);
+        lakeG.addColorStop(0,'rgba(10,20,35,0.92)');lakeG.addColorStop(1,'rgba(4,10,20,0.97)');
+        cx.fillStyle=lakeG;cx.fill();
+        // aurora reflection in ice — the whole sky repeated, wobbly
+        auroraBands.forEach((b,i)=>{
+            const shimmer=ei(p)*(0.6+Math.sin(gt*0.01+i*0.8)*0.4);if(shimmer<0.02)return;
+            const refY=lakeY+(lakeY-b.y)*0.4;// compressed reflection
+            cx.beginPath();cx.moveTo(0,refY);
+            for(let x=0;x<=W;x+=8)cx.lineTo(x,refY+Math.sin(x*0.003+gt*b.spd*0.7+b.ph+gt*0.01)*b.amp*0.35);
+            cx.lineTo(W,H);cx.lineTo(0,H);cx.closePath();
+            cx.fillStyle=`hsla(${b.hue},80%,55%,${0.08*shimmer})`;cx.fill();
+        });
+        // ice surface texture
+        iceBlocks.forEach(ib=>{
+            cx.save();cx.translate(ib.x,ib.y);cx.rotate(ib.angle);
+            cx.beginPath();cx.rect(-ib.w/2,-ib.h/2,ib.w,ib.h);
+            cx.fillStyle='rgba(140,160,195,0.12)';cx.fill();
+            cx.strokeStyle='rgba(160,180,210,0.2)';cx.lineWidth=0.8;cx.stroke();
+            cx.restore();
+        });
+        // shore line silhouette
+        cx.beginPath();cx.rect(0,lakeY-3,W,6);cx.fillStyle='rgba(15,20,28,0.6)';cx.fill();
+    };
+})();
+
+/* ═══ 12 · TORTOISE ON LAVA FIELD ═══════
+   A slow crossing of impossible ground.
+   No doubt. No rush. No shortcut.
+══════════════════════════════════════ */
+(()=>{
+    const lavaCracks=Array.from({length:35},(_,i)=>({x:rnd(0,W),y:rnd(H*0.4,H*0.9),a:rnd(0,Math.PI*2),len:rnd(30,120),w:rnd(1,3)}));
+    R[12]=(gt,st,tot)=>{
+        const cx=ctxs[12];const p=ei(st/tot);
+        cx.fillStyle='rgba(5,2,1,0.22)';cx.fillRect(0,0,W,H);
+        // dramatic volcanic sky
+        const sky=cx.createLinearGradient(0,0,0,H*0.5);
+        sky.addColorStop(0,`rgba(${Math.floor(L(8,25,p))},${Math.floor(L(4,10,p))},${Math.floor(L(2,4,p))},0.6)`);
+        sky.addColorStop(0.6,'rgba(18,8,3,0.35)');sky.addColorStop(1,'rgba(0,0,0,0)');
+        cx.fillStyle=sky;cx.fillRect(0,0,W,H*0.5);
+        // distant volcano
+        cx.beginPath();cx.moveTo(W*0.78,H);cx.lineTo(W*0.78,H*0.32);cx.lineTo(W*0.88,H*0.14);cx.lineTo(W*0.98,H*0.32);cx.lineTo(W*0.98,H);cx.closePath();
+        cx.fillStyle='rgba(12,8,4,0.95)';cx.fill();
+        // volcano glow
+        const vg=cx.createRadialGradient(W*0.88,H*0.14,0,W*0.88,H*0.2,W*0.15);
+        vg.addColorStop(0,`rgba(255,${Math.floor(L(60,100,p))},0,${0.35+Math.sin(gt*0.04)*0.06})`);
+        vg.addColorStop(1,'rgba(0,0,0,0)');
+        cx.fillStyle=vg;cx.fillRect(W*0.65,0,W*0.35,H*0.45);
+        // solidified lava field — basalt black with glowing cracks
+        cx.beginPath();cx.moveTo(0,H);cx.lineTo(0,H*0.42);
+        for(let x=0;x<=W;x+=12)cx.lineTo(x,H*0.42+Math.sin(x*0.005)*20+Math.sin(x*0.012+1)*10);
+        cx.lineTo(W,H);cx.closePath();
+        const lavaFieldG=cx.createLinearGradient(0,H*0.42,0,H);
+        lavaFieldG.addColorStop(0,'rgba(12,8,4,0.97)');lavaFieldG.addColorStop(0.5,'rgba(8,5,2,0.98)');lavaFieldG.addColorStop(1,'rgba(4,2,1,0.99)');
+        cx.fillStyle=lavaFieldG;cx.fill();
+        // glowing cracks in cooling lava
+        lavaCracks.forEach(lc=>{
+            const ex=lc.x+Math.cos(lc.a)*lc.len,ey=lc.y+Math.sin(lc.a)*lc.len;
+            const heat=0.3+Math.sin(gt*0.03+lc.x*0.01)*0.15;
+            cx.beginPath();cx.moveTo(lc.x,lc.y);cx.lineTo(ex,ey);
+            cx.strokeStyle=`rgba(255,${Math.floor(L(60,120,heat))},0,${heat*0.5})`;cx.lineWidth=lc.w;cx.stroke();
+        });
+        // lava glow from cracks
+        for(let i=0;i<8;i++){
+            const gx=W*(0.1+i*0.11),gy=H*0.65+rnd(-30,30);
+            const gg=cx.createRadialGradient(gx,gy,0,gx,gy,45);
+            gg.addColorStop(0,`rgba(255,${Math.floor(rnd(40,90))},0,${0.08+Math.sin(gt*0.04+i)*0.03})`);gg.addColorStop(1,'rgba(0,0,0,0)');
+            cx.fillStyle=gg;cx.fillRect(gx-50,gy-50,100,100);
+        }
+        // THE TORTOISE — moving slowly left to right
+        const tX=W*0.08+p*W*0.78;const tY=H*0.5+Math.sin(p*Math.PI*12)*4;// slight bob of walking
+        const walkPhase=p*50;
+        cx.save();cx.translate(tX,tY);
+        // shell — dome
+        cx.beginPath();cx.ellipse(0,-12,32,22,0,0,Math.PI*2);
+        const shellG=cx.createRadialGradient(-5,-18,0,0,-12,32);
+        shellG.addColorStop(0,'rgba(55,45,22,0.95)');shellG.addColorStop(0.4,'rgba(42,34,16,0.92)');shellG.addColorStop(0.8,'rgba(30,24,10,0.95)');shellG.addColorStop(1,'rgba(18,14,5,0.98)');
+        cx.fillStyle=shellG;cx.fill();
+        // shell scute pattern
+        const scutes=[[0,-25,12],[0,-12,10],[12,-16,9],[-12,-16,9],[0,-4,9],[14,-6,8],[-14,-6,8]];
+        scutes.forEach(([sx,sy,sr])=>{
+            cx.beginPath();cx.arc(sx,sy,sr,0,Math.PI*2);
+            cx.strokeStyle='rgba(20,15,6,0.5)';cx.lineWidth=1.5;cx.stroke();
+        });
+        // head and neck — extended forward
+        cx.beginPath();cx.moveTo(25,-8);cx.lineTo(38,-6);
+        cx.strokeStyle='rgba(45,35,14,0.88)';cx.lineWidth=8;cx.stroke();
+        cx.beginPath();cx.ellipse(44,-5,8,6,0.1,0,Math.PI*2);cx.fillStyle='rgba(50,38,15,0.9)';cx.fill();
+        // eye
+        cx.beginPath();cx.arc(49,-7,2.5,0,Math.PI*2);cx.fillStyle='rgba(8,5,2,0.95)';cx.fill();
+        cx.beginPath();cx.arc(48.5,-7.5,1,0,Math.PI*2);cx.fillStyle='rgba(150,140,100,0.3)';cx.fill();
+        // legs — alternating walk
+        const legPairs=[[-15,10,1],[15,10,-1],[-22,5,1],[22,5,-1]];
+        legPairs.forEach(([lx,ly,phase],li)=>{
+            const angle=Math.sin(walkPhase+li*Math.PI*0.5)*0.4*phase;
+            cx.beginPath();cx.moveTo(lx,ly);cx.lineTo(lx+Math.cos(angle+Math.PI*0.5)*18,ly+Math.sin(angle+Math.PI*0.5)*18);
+            cx.strokeStyle='rgba(42,33,13,0.88)';cx.lineWidth=6;cx.stroke();
+            cx.beginPath();cx.arc(lx+Math.cos(angle+Math.PI*0.5)*18,ly+Math.sin(angle+Math.PI*0.5)*18,6,0,Math.PI*2);
+            cx.fillStyle='rgba(40,31,12,0.85)';cx.fill();
+        });
+        // tail
+        cx.beginPath();cx.moveTo(-28,5);cx.lineTo(-36,10);cx.strokeStyle='rgba(38,29,11,0.7)';cx.lineWidth=5;cx.stroke();
+        cx.restore();
+    };
+})();
+
+/* ═══ 13 · SMOKE SIGNAL AT DUSK ═════════
+   One column. Rising straight.
+   No wind to argue with tonight.
+══════════════════════════════════════ */
+(()=>{
+    const smokePuffs=Array.from({length:60},(_,i)=>({x:W*0.5,y:H*0.6,vy:-rnd(0.5,2.5),vx:(Math.random()-0.5)*0.8,sz:rnd(15,55),ph:Math.random()*Math.PI*2,al:rnd(0.04,0.14)}));
+    R[13]=(gt,st,tot)=>{
+        const cx=ctxs[13];const p=ei(st/tot);
+        cx.fillStyle='rgba(4,3,2,0.22)';cx.fillRect(0,0,W,H);
+        // vast dusk sky — molten at horizon
+        const sky=cx.createLinearGradient(0,0,0,H*0.72);
+        sky.addColorStop(0,`rgba(${Math.floor(L(6,22,p))},${Math.floor(L(5,14,p))},${Math.floor(L(12,28,p))},0.6)`);
+        sky.addColorStop(0.3,`rgba(${Math.floor(L(22,70,p))},${Math.floor(L(12,28,p))},${Math.floor(L(8,12,p))},0.45)`);
+        sky.addColorStop(0.65,`rgba(${Math.floor(L(60,195,p))},${Math.floor(L(28,90,p))},${Math.floor(L(8,16,p))},0.3)`);
+        sky.addColorStop(0.85,`rgba(${Math.floor(L(120,255,p))},${Math.floor(L(60,160,p))},${Math.floor(L(14,28,p))},0.2)`);
+        sky.addColorStop(1,'rgba(0,0,0,0)');
+        cx.fillStyle=sky;cx.fillRect(0,0,W,H*0.72);
+        // sun disk at horizon
+        const sunG=cx.createRadialGradient(W*0.5,H*0.7,0,W*0.5,H*0.7,W*0.22);
+        sunG.addColorStop(0,`rgba(255,${Math.floor(L(110,220,p))},${Math.floor(L(15,50,p))},${0.4+p*0.2})`);
+        sunG.addColorStop(0.5,'rgba(200,80,0,0.07)');sunG.addColorStop(1,'rgba(0,0,0,0)');
+        cx.fillStyle=sunG;cx.fillRect(0,H*0.45,W,H*0.35);
+        cx.beginPath();cx.arc(W*0.5,H*0.7,22,0,Math.PI*2);
+        cx.fillStyle=`rgba(255,${Math.floor(L(130,220,p))},${Math.floor(L(20,55,p))},0.9)`;cx.fill();
+        // smoke column rising
+        smokePuffs.forEach(s=>{
+            s.y+=s.vy;s.x+=s.vx+Math.sin(gt*0.008+s.ph)*0.4;s.sz+=0.2;
+            if(s.y<-s.sz||s.sz>150){s.y=H*0.62+rnd(-15,15);s.x=W*0.5+rnd(-12,12);s.sz=rnd(15,40);}
+            const height=(H*0.62-s.y)/H*0.62;
+            const sg=cx.createRadialGradient(s.x,s.y,0,s.x,s.y,s.sz);
+            const smR=Math.floor(L(60,100,height)),smG=Math.floor(L(55,90,height)),smB=Math.floor(L(50,82,height));
+            sg.addColorStop(0,`rgba(${smR},${smG},${smB},${s.al*(0.5+p*0.5)})`);sg.addColorStop(1,'rgba(0,0,0,0)');
+            cx.fillStyle=sg;cx.fillRect(s.x-s.sz,s.y-s.sz,s.sz*2,s.sz*2);
+        });
+        // fire source at base
+        for(let f=0;f<5;f++){
+            const fa=(f-2)*0.3+Math.sin(gt*0.06+f)*0.2;const fl=25+Math.sin(gt*0.08+f)*8;
+            const ffg=cx.createRadialGradient(W*0.5+Math.cos(fa)*5,H*0.63,0,W*0.5,H*0.63-fl,18);
+            ffg.addColorStop(0,`rgba(255,${Math.floor(rnd(180,230))},40,0.8)`);ffg.addColorStop(1,'rgba(0,0,0,0)');
+            cx.fillStyle=ffg;cx.fillRect(W*0.5-25,H*0.6-fl,50,fl+5);
+        }
+        // campfire logs
+        cx.beginPath();cx.ellipse(W*0.5,H*0.635,28,8,0.3,0,Math.PI*2);cx.fillStyle='rgba(20,12,4,0.9)';cx.fill();
+        cx.beginPath();cx.ellipse(W*0.5,H*0.635,20,6,-0.3,0,Math.PI*2);cx.fillStyle='rgba(16,9,3,0.88)';cx.fill();
+        // hilltop — small dark rise
+        cx.beginPath();cx.moveTo(0,H);
+        for(let x=0;x<=W;x+=16)cx.lineTo(x,H*0.78+Math.sin(x*0.004)*28+Math.abs(Math.sin(x*0.002-Math.PI*0.5))*H*0.1-H*0.06);
+        cx.lineTo(W,H);cx.closePath();cx.fillStyle='rgba(6,4,2,0.97)';cx.fill();
+        // distant hills in silhouette
+        cx.beginPath();cx.moveTo(0,H);
+        for(let x=0;x<=W;x+=18)cx.lineTo(x,H*0.68+Math.sin(x*0.003)*H*0.05+Math.sin(x*0.007+2)*H*0.025);
+        cx.lineTo(W,H);cx.closePath();cx.fillStyle='rgba(10,7,3,0.75)';cx.fill();
+    };
+})();
+
+/* ═══ 14 · BEEHIVE AT NOON ═══════════════
+   Ten thousand workers. Zero confusion.
+   Purpose so complete it needs no name.
+══════════════════════════════════════ */
+(()=>{
+    const bees=Array.from({length:180},(_,i)=>({
+        a:Math.random()*Math.PI*2,r:rnd(60,W*0.45),
+        vA:rnd(0.012,0.035)*(Math.random()<0.5?1:-1),
+        vR:(Math.random()-0.5)*0.8,ph:Math.random()*Math.PI*2,sz:rnd(0.6,1.2)
+    }));
+    R[14]=(gt,st,tot)=>{
+        const cx=ctxs[14];const p=ei(st/tot);
+        cx.fillStyle='rgba(4,3,1,0.22)';cx.fillRect(0,0,W,H);
+        // warm golden ambient — summer noon haze
+        const bg=cx.createRadialGradient(W*0.5,H*0.45,0,W*0.5,H*0.5,W*0.65);
+        bg.addColorStop(0,`rgba(${Math.floor(L(20,38,p))},${Math.floor(L(15,25,p))},${Math.floor(L(4,8,p))},0.4)`);
+        bg.addColorStop(1,'rgba(3,2,1,0.2)');
+        cx.fillStyle=bg;cx.fillRect(0,0,W,H);
+        // hexagonal honeycomb — the architecture
+        const hx=W*0.5,hy=H*0.5;const hexR=32;
+        const hexW=hexR*Math.sqrt(3),hexH=hexR*2;
+        for(let row=-8;row<=8;row++){
+            for(let col=-12;col<=12;col++){
+                const ox=col*hexW+(row%2)*hexW*0.5;const oy=row*hexH*0.75;
+                const dist=Math.sqrt(ox*ox+oy*oy);const maxDist=W*0.4;
+                if(dist>maxDist)continue;
+                const vis=Math.max(0,1-dist/maxDist);
+                cx.save();cx.translate(hx+ox,hy+oy);
+                cx.beginPath();
+                for(let v=0;v<6;v++){const va=(v/6)*Math.PI*2;cx.lineTo(Math.cos(va)*(hexR-1),Math.sin(va)*(hexR-1));}
+                cx.closePath();
+                // honey fill — varies by distance/phase
+                const honeyFill=Math.sin(dist*0.02+gt*0.01)*0.3+0.7;
+                const cellHue=rnd(38,52);
+                cx.fillStyle=`hsla(${cellHue},${Math.floor(L(65,80,vis))}%,${Math.floor(L(22,38,honeyFill*vis))}%,${vis*0.9})`;cx.fill();
+                cx.strokeStyle=`rgba(25,18,5,${vis*0.6})`;cx.lineWidth=1.2;cx.stroke();
+                // honey shimmer
+                if(dist<maxDist*0.5){
+                    cx.beginPath();cx.arc(-5,-5,hexR*0.22,0,Math.PI*2);
+                    cx.fillStyle=`rgba(255,220,80,${vis*honeyFill*0.12})`;cx.fill();
+                }
+                cx.restore();
+            }
+        }
+        // bees flying
+        bees.forEach(b=>{
+            b.a+=b.vA;b.r+=b.vR+Math.sin(gt*0.02+b.ph)*0.5;
+            if(b.r<20)b.r=20;if(b.r>W*0.5)b.r=rnd(50,W*0.35);
+            const bx=hx+Math.cos(b.a)*b.r,by=hy+Math.sin(b.a)*b.r*0.65;
+            const speed=Math.sqrt(b.vA*b.vA+b.vR*b.vR);
+            const angle=Math.atan2(Math.sin(b.a)*b.r*0.65,Math.cos(b.a)*b.r)+Math.atan2(b.vR,b.vA*b.r);
+            cx.save();cx.translate(bx,by);cx.rotate(angle);cx.scale(b.sz,b.sz);
+            // wings blur
+            for(let w=0;w<3;w++){
+                const wa=w*0.25-0.25;
+                cx.beginPath();cx.ellipse(0,-5,10,5,wa,0,Math.PI*2);
+                cx.fillStyle='rgba(220,235,255,0.12)';cx.fill();
+                cx.beginPath();cx.ellipse(0,5,10,5,-wa,0,Math.PI*2);
+                cx.fillStyle='rgba(220,235,255,0.12)';cx.fill();
+            }
+            // body — striped
+            for(let s=0;s<3;s++){cx.beginPath();cx.rect(-3+s*-0.5,-7+s*4,6+s,4);cx.fillStyle=s%2===0?'rgba(35,25,5,0.88)':'rgba(200,160,30,0.85)';cx.fill();}
+            cx.restore();
+        });
+        // hive entrance glow
+        const entG=cx.createRadialGradient(hx,hy,0,hx,hy,60);
+        entG.addColorStop(0,`rgba(255,200,40,${0.25+Math.sin(gt*0.04)*0.06})`);entG.addColorStop(1,'rgba(0,0,0,0)');
+        cx.fillStyle=entG;cx.fillRect(hx-65,hy-65,130,130);
+    };
+})();
+
+/* ═══ 15 · SEA STACK AT HIGH TIDE ════════
+   The rock surrounded, cut off,
+   still there. Still entirely itself.
+══════════════════════════════════════ */
+(()=>{
+    const waveSet=Array.from({length:8},(_,i)=>({ph:i*0.38,amp:18+i*6,spd:0.016+i*0.003,y:H*(0.4+i*0.07)}));
+    R[15]=(gt,st,tot)=>{
+        const cx=ctxs[15];const p=ei(st/tot);
+        cx.fillStyle='rgba(2,4,8,0.2)';cx.fillRect(0,0,W,H);
+        // grey storm atlantic sky
+        const sky=cx.createLinearGradient(0,0,0,H*0.52);
+        sky.addColorStop(0,`rgba(${Math.floor(L(18,38,p))},${Math.floor(L(20,42,p))},${Math.floor(L(25,52,p))},0.65)`);
+        sky.addColorStop(0.5,'rgba(32,36,44,0.4)');sky.addColorStop(1,'rgba(0,0,0,0)');
+        cx.fillStyle=sky;cx.fillRect(0,0,W,H*0.52);
+        // storm clouds
+        for(let i=0;i<8;i++){
+            const ccx=W*(0.05+i*0.14)+Math.sin(gt*0.003+i)*20;
+            const cg=cx.createRadialGradient(ccx,H*0.12+i%3*H*0.06,0,ccx,H*0.12+i%3*H*0.06,W*0.1);
+            cg.addColorStop(0,`rgba(45,48,55,${0.25+p*0.1})`);cg.addColorStop(1,'rgba(0,0,0,0)');
+            cx.fillStyle=cg;cx.fillRect(0,0,W,H*0.48);
+        }
+        // sea — churning, high tide
+        waveSet.forEach((wv,i)=>{
+            cx.beginPath();cx.moveTo(-20,H);
+            for(let x=-20;x<=W+20;x+=8)cx.lineTo(x,wv.y+Math.sin(x*0.008+gt*wv.spd+wv.ph)*wv.amp+Math.sin(x*0.02+gt*wv.spd*1.7)*wv.amp*0.3);
+            cx.lineTo(W+20,H);cx.closePath();
+            const seaG=cx.createLinearGradient(0,wv.y,0,H);
+            seaG.addColorStop(0,`rgba(${Math.floor(L(12,22,p))},${Math.floor(L(35,58,p))},${Math.floor(L(62,95,p))},${0.78-i*0.05})`);
+            seaG.addColorStop(1,'rgba(4,14,28,0.97)');
+            cx.fillStyle=seaG;cx.fill();
+        });
+        // wave foam crests
+        for(let i=0;i<18;i++){
+            const wx=rnd(0,W);const wy=H*(0.4+rnd(0,0.38));
+            cx.beginPath();cx.ellipse(wx,wy,rnd(15,50),rnd(3,7),0,0,Math.PI*2);
+            cx.fillStyle=`rgba(215,228,242,${0.12+Math.random()*0.1})`;cx.fill();
+        }
+        // THE SEA STACK — isolated pillar of rock
+        const sX=W*0.52,sBaseY=H*0.42,sWidth=W*0.055,sHeight=H*0.48;
+        // stack shadow/base
+        cx.beginPath();cx.ellipse(sX,sBaseY+sHeight*0.92,sWidth*0.7,sWidth*0.15,0,0,Math.PI*2);
+        cx.fillStyle='rgba(0,0,0,0.2)';cx.fill();
+        // main pillar body
+        cx.beginPath();cx.moveTo(sX-sWidth*0.4,sBaseY+sHeight);
+        cx.lineTo(sX-sWidth*0.5,sBaseY+sHeight*0.5);
+        cx.bezierCurveTo(sX-sWidth*0.55,sBaseY+sHeight*0.2,sX-sWidth*0.4,sBaseY,sX,sBaseY-sHeight*0.05);
+        cx.bezierCurveTo(sX+sWidth*0.4,sBaseY,sX+sWidth*0.55,sBaseY+sHeight*0.2,sX+sWidth*0.5,sBaseY+sHeight*0.5);
+        cx.lineTo(sX+sWidth*0.4,sBaseY+sHeight);cx.closePath();
+        const stackG=cx.createLinearGradient(sX-sWidth*0.55,0,sX+sWidth*0.55,0);
+        stackG.addColorStop(0,'rgba(32,28,22,0.97)');stackG.addColorStop(0.25,'rgba(52,46,34,0.95)');
+        stackG.addColorStop(0.6,'rgba(44,38,28,0.96)');stackG.addColorStop(1,'rgba(26,22,16,0.98)');
+        cx.fillStyle=stackG;cx.fill();
+        // stratification lines — geological record
+        for(let l=0;l<12;l++){
+            const ly=sBaseY+l*(sHeight/11);
+            const lw=sWidth*(0.45+Math.sin(l*0.8)*0.05);
+            cx.beginPath();cx.moveTo(sX-lw,ly);cx.lineTo(sX+lw,ly);
+            cx.strokeStyle=`rgba(18,15,10,${0.2+l*0.015})`;cx.lineWidth=1.5;cx.stroke();
+        }
+        // top cap
+        cx.beginPath();cx.ellipse(sX,sBaseY,sWidth*0.52,sWidth*0.14,0,0,Math.PI*2);
+        cx.fillStyle='rgba(48,44,30,0.95)';cx.fill();
+        // seabird on top — one dark dot
+        cx.beginPath();cx.arc(sX+sWidth*0.1,sBaseY-sWidth*0.2,4,0,Math.PI*2);
+        cx.fillStyle='rgba(8,6,4,0.9)';cx.fill();
+        // surf breaking at base
+        for(let w=0;w<4;w++){
+            const wr=sWidth*0.7+w*12;
+            cx.beginPath();cx.ellipse(sX,sBaseY+sHeight*0.88,wr,wr*0.18,0,0,Math.PI*2);
+            cx.strokeStyle=`rgba(210,225,240,${0.2-w*0.04})`;cx.lineWidth=2-w*0.3;cx.stroke();
+        }
+    };
+})();
+
+/* ═══ 16 · CATERPILLAR ON BRANCH ═════════
+   No knowledge of wings. Moving anyway.
+   Complete faith in the next form.
+══════════════════════════════════════ */
+(()=>{
+    R[16]=(gt,st,tot)=>{
+        const cx=ctxs[16];const p=ei(st/tot);
+        cx.fillStyle='rgba(3,4,2,0.22)';cx.fillRect(0,0,W,H);
+        // dappled forest light
+        const bg=cx.createLinearGradient(0,0,0,H);
+        bg.addColorStop(0,'rgba(8,14,4,0.5)');bg.addColorStop(0.5,'rgba(5,10,2,0.3)');bg.addColorStop(1,'rgba(2,5,1,0.2)');
+        cx.fillStyle=bg;cx.fillRect(0,0,W,H);
+        // light shafts
+        for(let i=0;i<8;i++){
+            const lx=W*(0.06+i*0.12)+Math.sin(gt*0.005+i)*12;
+            const lg=cx.createLinearGradient(lx,0,lx+15,H*0.75);
+            lg.addColorStop(0,`rgba(200,230,150,${0.04+Math.sin(gt*0.008+i)*0.012})`);lg.addColorStop(1,'rgba(0,0,0,0)');
+            cx.fillStyle=lg;cx.beginPath();cx.moveTo(lx,0);cx.lineTo(lx+12,0);cx.lineTo(lx+40,H*0.75);cx.lineTo(lx-25,H*0.75);cx.closePath();cx.fill();
+        }
+        // the branch — runs diagonally across frame
+        const branchY1=H*0.58,branchY2=H*0.48;
+        cx.beginPath();cx.moveTo(-20,branchY1);cx.bezierCurveTo(W*0.3,branchY1-H*0.02,W*0.7,branchY2+H*0.02,W+20,branchY2);
+        cx.strokeStyle='rgba(42,32,16,0.92)';cx.lineWidth=28;cx.stroke();
+        // bark texture
+        for(let b=0;b<12;b++){
+            const bx=W*(0.05+b*0.08);const by=branchY1+(branchY2-branchY1)*(bx/W);
+            cx.beginPath();cx.moveTo(bx,by-12);cx.lineTo(bx+rnd(-15,15),by+12);
+            cx.strokeStyle='rgba(22,15,6,0.3)';cx.lineWidth=2;cx.stroke();
+        }
+        // leaves on branch
+        [[W*0.2,branchY1-H*0.02],[W*0.45,branchY1-H*0.05],[W*0.65,branchY2-H*0.02],[W*0.82,branchY2+H*0.01]].forEach(([lx,ly])=>{
+            const sway=Math.sin(gt*0.01+lx*0.002)*8;
+            cx.save();cx.translate(lx,ly);cx.rotate(sway*0.04-0.3);
+            cx.beginPath();cx.ellipse(0,-30,14,38,0,0,Math.PI*2);
+            cx.fillStyle='rgba(35,75,18,0.75)';cx.fill();
+            cx.beginPath();cx.moveTo(0,8);cx.lineTo(0,-60);cx.strokeStyle='rgba(25,55,12,0.4)';cx.lineWidth=1.2;cx.stroke();
+            cx.restore();
+        });
+        // THE CATERPILLAR — inchworm style, crossing the branch
+        const catX=W*0.1+p*W*0.72;
+        const catY=branchY1+(branchY2-branchY1)*(catX/W)-14;
+        const branchAngle=Math.atan2(branchY2-branchY1,W);
+        cx.save();cx.translate(catX,catY);cx.rotate(branchAngle);
+        const segments=11;
+        for(let s=0;s<segments;s++){
+            const sx=-s*12+Math.sin(gt*0.08+s*0.8)*3;
+            const sy=Math.sin(gt*0.1+s)*2;
+            cx.beginPath();cx.ellipse(sx,sy,8-s*0.1,7,0,0,Math.PI*2);
+            const hue=100+Math.sin(s*0.5)*20;
+            cx.fillStyle=`hsla(${hue},65%,${28+s*1.5}%,0.9)`;cx.fill();
+            // segment stripe
+            cx.beginPath();cx.moveTo(sx-7,sy-4);cx.lineTo(sx-7,sy+4);
+            cx.strokeStyle=`rgba(20,55,10,0.3)`;cx.lineWidth=1.5;cx.stroke();
+            // legs on lower segments
+            if(s>2){
+                for(let l=-1;l<=1;l+=2){
+                    cx.beginPath();cx.moveTo(sx,sy+6);cx.lineTo(sx+l*4,sy+14);
+                    cx.strokeStyle=`rgba(30,60,15,0.5)`;cx.lineWidth=1.5;cx.stroke();
+                }
+            }
+        }
+        // head
+        cx.beginPath();cx.ellipse(9,0,10,9,0,0,Math.PI*2);cx.fillStyle='rgba(25,60,12,0.95)';cx.fill();
+        // antennae
+        for(let a=-1;a<=1;a+=2){
+            cx.beginPath();cx.moveTo(14,a*4);cx.lineTo(20+Math.sin(gt*0.06)*4,a*12);
+            cx.strokeStyle='rgba(20,50,10,0.7)';cx.lineWidth=1.5;cx.stroke();
+            cx.beginPath();cx.arc(20+Math.sin(gt*0.06)*4,a*12,2.5,0,Math.PI*2);cx.fillStyle='rgba(18,45,8,0.8)';cx.fill();
+        }
+        // eyes
+        cx.beginPath();cx.arc(15,-3,2.5,0,Math.PI*2);cx.fillStyle='rgba(240,230,160,0.8)';cx.fill();
+        cx.beginPath();cx.arc(15.5,-3,1,0,Math.PI*2);cx.fillStyle='rgba(5,3,1,0.95)';cx.fill();
+        cx.restore();
+    };
+})();
+
+/* ═══ 17 · MONASTERY AT SNOWFALL ═════════
+   The bell rings at the same hour.
+   The practice continues.
+   The snow has no opinion about this.
+══════════════════════════════════════ */
+(()=>{
+    const snowfall3=Array.from({length:350},()=>({x:rnd(0,W),y:rnd(-H,H),vy:rnd(0.5,2.2),vx:(Math.random()-0.5)*0.5,sz:rnd(1.5,5),ph:Math.random()*Math.PI*2}));
+    const mountainSil=Array.from({length:100},(_,i)=>({x:i*(W/99),y:H*0.45+Math.sin(i*0.06)*H*0.09+Math.sin(i*0.025+0.8)*H*0.07}));
+    R[17]=(gt,st,tot)=>{
+        const cx=ctxs[17];const p=ei(st/tot);
+        cx.fillStyle='rgba(5,5,8,0.2)';cx.fillRect(0,0,W,H);
+        // overcast winter sky — diffuse grey-white
+        const sky=cx.createLinearGradient(0,0,0,H*0.55);
+        sky.addColorStop(0,`rgba(${Math.floor(L(38,62,p))},${Math.floor(L(40,65,p))},${Math.floor(L(50,78,p))},0.55)`);
+        sky.addColorStop(0.5,`rgba(${Math.floor(L(55,82,p))},${Math.floor(L(58,88,p))},${Math.floor(L(68,100,p))},0.35)`);
+        sky.addColorStop(1,'rgba(0,0,0,0)');
+        cx.fillStyle=sky;cx.fillRect(0,0,W,H*0.55);
+        // snow-covered mountains
+        cx.beginPath();cx.moveTo(0,H);mountainSil.forEach(pt=>cx.lineTo(pt.x,pt.y));cx.lineTo(W,H);cx.closePath();
+        cx.fillStyle='rgba(35,36,42,0.92)';cx.fill();
+        // snow on mountain peaks
+        cx.beginPath();cx.moveTo(0,mountainSil[0].y-12);
+        mountainSil.forEach((pt,i)=>{if(i%3===0)cx.lineTo(pt.x,pt.y-rnd(5,20));});
+        cx.strokeStyle='rgba(220,225,235,0.4)';cx.lineWidth=12;cx.stroke();
+        // monastery compound — centered
+        const mX=W*0.5,mBaseY=H*0.52;
+        // main hall
+        cx.beginPath();cx.rect(mX-W*0.1,mBaseY-H*0.14,W*0.2,H*0.14);
+        const wallG=cx.createLinearGradient(mX-W*0.1,0,mX+W*0.1,0);
+        wallG.addColorStop(0,'rgba(40,35,25,0.95)');wallG.addColorStop(0.5,'rgba(52,46,32,0.92)');wallG.addColorStop(1,'rgba(36,30,20,0.95)');
+        cx.fillStyle=wallG;cx.fill();
+        // tiered roof — 3 tiers
+        [[W*0.12,H*0.04],[W*0.09,H*0.03],[W*0.06,H*0.025]].forEach(([rw,rh],ri)=>{
+            const ry=mBaseY-H*0.14-ri*rh*1.1;
+            cx.beginPath();cx.moveTo(mX-rw,ry+rh);cx.lineTo(mX,ry);cx.lineTo(mX+rw,ry+rh);cx.closePath();
+            const roofG=cx.createLinearGradient(mX-rw,ry,mX+rw,ry);
+            roofG.addColorStop(0,'rgba(28,22,10,0.97)');roofG.addColorStop(0.5,'rgba(42,34,14,0.95)');roofG.addColorStop(1,'rgba(24,18,8,0.97)');
+            cx.fillStyle=roofG;cx.fill();
+            // snow on roof edge
+            cx.beginPath();cx.moveTo(mX-rw,ry+rh);cx.lineTo(mX,ry);cx.lineTo(mX+rw,ry+rh);
+            cx.strokeStyle=`rgba(215,220,230,${0.4+p*0.2})`;cx.lineWidth=4;cx.stroke();
+        });
+        // windows with warm light
+        for(let w=-2;w<=2;w++){
+            cx.beginPath();cx.rect(mX+w*W*0.028-W*0.012,mBaseY-H*0.1,W*0.022,H*0.06);
+            const wG=cx.createLinearGradient(0,mBaseY-H*0.1,0,mBaseY-H*0.04);
+            wG.addColorStop(0,`rgba(255,${Math.floor(L(160,210,p))},${Math.floor(L(40,80,p))},0.75)`);
+            wG.addColorStop(1,`rgba(200,${Math.floor(L(120,170,p))},${Math.floor(L(25,55,p))},0.55)`);
+            cx.fillStyle=wG;cx.fill();
+            // glow
+            const wGlow=cx.createRadialGradient(mX+w*W*0.028,mBaseY-H*0.07,0,mX+w*W*0.028,mBaseY-H*0.07,W*0.03);
+            wGlow.addColorStop(0,`rgba(255,180,60,${0.08+p*0.04})`);wGlow.addColorStop(1,'rgba(0,0,0,0)');
+            cx.fillStyle=wGlow;cx.fillRect(mX+w*W*0.028-W*0.04,mBaseY-H*0.12,W*0.08,H*0.1);
+        }
+        // gate entrance
+        cx.beginPath();cx.rect(mX-W*0.015,mBaseY-H*0.065,W*0.03,H*0.065);
+        cx.fillStyle='rgba(12,8,3,0.92)';cx.fill();
+        // small stupas / pagoda elements left and right
+        [-1,1].forEach(side=>{
+            const sx=mX+side*W*0.16;
+            cx.beginPath();cx.rect(sx-W*0.015,mBaseY-H*0.1,W*0.03,H*0.1);cx.fillStyle='rgba(38,32,20,0.88)';cx.fill();
+            cx.beginPath();cx.moveTo(sx-W*0.022,mBaseY-H*0.1);cx.lineTo(sx,mBaseY-H*0.18);cx.lineTo(sx+W*0.022,mBaseY-H*0.1);cx.closePath();
+            cx.fillStyle='rgba(30,25,14,0.9)';cx.fill();
+        });
+        // snow accumulating on monastery
+        cx.beginPath();cx.rect(mX-W*0.1,mBaseY-H*0.144,W*0.2,10);
+        cx.fillStyle=`rgba(210,215,225,${0.3+p*0.3})`;cx.fill();
+        // ground snow
+        cx.beginPath();cx.moveTo(0,H);for(let x=0;x<=W;x+=14)cx.lineTo(x,mBaseY+Math.sin(x*0.005)*8);
+        cx.lineTo(W,H);cx.closePath();
+        cx.fillStyle=`rgba(${Math.floor(L(175,205,p))},${Math.floor(L(180,212,p))},${Math.floor(L(192,225,p))},0.88)`;cx.fill();
+        // falling snow
+        snowfall3.forEach(s=>{
+            s.y+=s.vy;s.x+=s.vx+Math.sin(gt*0.008+s.ph)*0.4;if(s.y>H+8)s.y=-8;
+            const tw=Math.sin(gt*0.04+s.ph)*0.2+0.8;
+            cx.beginPath();cx.arc(s.x,s.y,s.sz*tw,0,Math.PI*2);
+            cx.fillStyle=`rgba(215,222,235,${tw*0.5})`;cx.fill();
+        });
+        // monk figure in courtyard
+        const monkX=mX+W*0.04,monkY=mBaseY-8;
+        cx.beginPath();cx.arc(monkX,monkY-H*0.06,9,0,Math.PI*2);cx.fillStyle='rgba(15,12,6,0.88)';cx.fill();
+        cx.beginPath();cx.rect(monkX-8,monkY-H*0.06,16,H*0.06);cx.fillStyle='rgba(20,15,7,0.85)';cx.fill();
+    };
+})();
+
+/* ═══ 18 · TIDAL WAVE ON HORIZON ═════════
+   It comes. You can see it now.
+   You cannot stop it.
+   So you simply stand and witness.
+══════════════════════════════════════ */
+(()=>{
+    R[18]=(gt,st,tot)=>{
+        const cx=ctxs[18];const p=ei(st/tot);
+        cx.fillStyle='rgba(2,4,7,0.2)';cx.fillRect(0,0,W,H);
+        // sky — strange, calm, eerie
+        const sky=cx.createLinearGradient(0,0,0,H*0.5);
+        sky.addColorStop(0,`rgba(${Math.floor(L(6,20,p))},${Math.floor(L(8,22,p))},${Math.floor(L(18,38,p))},0.65)`);
+        sky.addColorStop(0.4,`rgba(${Math.floor(L(12,30,p))},${Math.floor(L(16,35,p))},${Math.floor(L(22,48,p))},0.45)`);
+        sky.addColorStop(1,'rgba(0,0,0,0)');
+        cx.fillStyle=sky;cx.fillRect(0,0,W,H*0.5);
+        // eerie calm sea before the wave
+        const seaBase=H*0.52;
+        cx.beginPath();cx.moveTo(0,H);
+        for(let x=0;x<=W;x+=12)cx.lineTo(x,seaBase+Math.sin(x*0.006+gt*0.008)*8*Math.max(0,1-p*1.5));
+        cx.lineTo(W,H);cx.closePath();
+        const seaG=cx.createLinearGradient(0,seaBase,0,H);
+        seaG.addColorStop(0,`rgba(${Math.floor(L(15,8,p))},${Math.floor(L(40,18,p))},${Math.floor(L(65,32,p))},0.9)`);
+        seaG.addColorStop(1,'rgba(4,10,20,0.97)');
+        cx.fillStyle=seaG;cx.fill();
+        // the wave — building on horizon, growing as p increases
+        const waveH=p*H*0.78;// total height
+        const waveY=seaBase-waveH;
+        // wave body — dark water wall
+        const waveGrad=cx.createLinearGradient(0,waveY,0,seaBase);
+        waveGrad.addColorStop(0,`rgba(${Math.floor(L(15,10,p))},${Math.floor(L(45,28,p))},${Math.floor(L(70,48,p))},${0.85+p*0.1})`);
+        waveGrad.addColorStop(0.3,`rgba(${Math.floor(L(10,6,p))},${Math.floor(L(32,18,p))},${Math.floor(L(55,35,p))},0.92)`);
+        waveGrad.addColorStop(0.7,'rgba(4,12,22,0.95)');
+        waveGrad.addColorStop(1,'rgba(2,6,12,0.98)');
+        cx.fillStyle=waveGrad;
+        cx.beginPath();cx.moveTo(0,seaBase);
+        // wave face — slightly curved, translucent crest
+        for(let x=0;x<=W;x+=10){
+            const surf=waveY+Math.sin(x*0.004+gt*0.03)*waveH*0.04+waveH*0.02*(1-x/W);
+            cx.lineTo(x,surf);
+        }
+        cx.lineTo(W,seaBase);cx.closePath();cx.fill();
+        // crest foam — the white curl at the top
+        if(p>0.15){
+            cx.beginPath();cx.moveTo(0,waveY);
+            for(let x=0;x<=W;x+=8)cx.lineTo(x,waveY+Math.sin(x*0.015+gt*0.05)*waveH*0.025-waveH*0.015);
+            cx.strokeStyle=`rgba(220,232,245,${Math.min(0.7,p*1.2)})`;cx.lineWidth=4+p*8;cx.stroke();
+            // spray
+            for(let i=0;i<30;i++){
+                const spx=rnd(0,W),spy=waveY+rnd(-20,10);
+                cx.beginPath();cx.arc(spx,spy,rnd(2,6),0,Math.PI*2);
+                cx.fillStyle=`rgba(210,225,242,${0.15+Math.random()*0.15})`;cx.fill();
+            }
+        }
+        // translucent wave face — light through the water
+        if(p>0.3){
+            const transG=cx.createLinearGradient(0,waveY,0,waveY+waveH*0.35);
+            transG.addColorStop(0,`rgba(${Math.floor(L(20,12,p))},${Math.floor(L(80,50,p))},${Math.floor(L(120,80,p))},${(p-0.3)*0.3})`);
+            transG.addColorStop(1,'rgba(0,0,0,0)');
+            cx.fillStyle=transG;
+            cx.beginPath();cx.moveTo(0,waveY-5);
+            for(let x=0;x<=W;x+=10)cx.lineTo(x,waveY+Math.sin(x*0.005)*waveH*0.04-5);
+            cx.lineTo(W,waveY+waveH*0.3);cx.lineTo(0,waveY+waveH*0.3);cx.closePath();cx.fill();
+        }
+        // standing figure — foreground, small, still
+        const figX=W*0.5,figY=seaBase-4;
+        cx.save();cx.translate(figX,figY);
+        cx.beginPath();cx.arc(0,-H*0.1,10,0,Math.PI*2);cx.fillStyle='rgba(6,5,3,0.88)';cx.fill();
+        cx.beginPath();cx.rect(-7,-H*0.1,14,H*0.1);cx.fillStyle='rgba(5,4,2,0.85)';cx.fill();
+        // arms slightly out — witness stance
+        cx.beginPath();cx.moveTo(-7,-H*0.08);cx.lineTo(-22,-H*0.06);cx.moveTo(7,-H*0.08);cx.lineTo(22,-H*0.06);
+        cx.strokeStyle='rgba(5,4,2,0.8)';cx.lineWidth=5;cx.stroke();
+        cx.restore();
+        // horizon land — thin strip, low
+        cx.beginPath();cx.rect(0,seaBase-H*0.022,W,H*0.022);cx.fillStyle='rgba(8,8,10,0.7)';cx.fill();
+    };
+})();
+
+/* ═══ 19 · LAST EMBER OF DAY ═════════════
+   The long light going.
+   Still warm. Still here.
+   Then not.
+══════════════════════════════════════ */
+(()=>{
+    const emberCoals=Array.from({length:40},(_,i)=>({x:W*0.15+i*(W*0.7/39)+rnd(-12,12),y:H*0.72+rnd(-6,6),r:rnd(18,45),ph:Math.random()*Math.PI*2}));
+    const risingSparks=Array.from({length:80},()=>({x:rnd(W*0.2,W*0.8),y:H*0.73+rnd(0,H*0.08),vx:(Math.random()-0.5)*1.2,vy:-rnd(0.4,2.2),al:rnd(0.2,0.7),sz:rnd(1,3),hue:rnd(15,45)}));
+    R[19]=(gt,st,tot)=>{
+        const cx=ctxs[19];const p=ei(st/tot);
+        cx.fillStyle='rgba(3,2,1,0.22)';cx.fillRect(0,0,W,H);
+        // last of the sunset — the famous blue hour transition
+        const dusk=cx.createLinearGradient(0,0,0,H);
+        // sky transitions: orange-red → purple → deep blue → black
+        const r1=Math.floor(L(120,8,p)),g1=Math.floor(L(50,5,p)),b1=Math.floor(L(20,18,p));
+        const r2=Math.floor(L(55,10,p)),g2=Math.floor(L(20,6,p)),b2=Math.floor(L(35,30,p));
+        const r3=Math.floor(L(20,3,p)),g3=Math.floor(L(10,3,p)),b3=Math.floor(L(45,15,p));
+        dusk.addColorStop(0,`rgba(${r1},${g1},${b1},0.65)`);
+        dusk.addColorStop(0.25,`rgba(${Math.floor(L(180,15,p))},${Math.floor(L(80,8,p))},${Math.floor(L(30,22,p))},0.5)`);
+        dusk.addColorStop(0.5,`rgba(${r2},${g2},${b2},0.4)`);
+        dusk.addColorStop(0.75,`rgba(${r3},${g3},${b3},0.3)`);
+        dusk.addColorStop(1,'rgba(0,0,0,0.1)');
+        cx.fillStyle=dusk;cx.fillRect(0,0,W,H);
+        // sun — barely above horizon, deep red, almost gone
+        const sunY=H*(0.62+p*0.22);// sinks as p increases
+        const sunR=38-p*15;// shrinks as it sets
+        if(sunY<H*0.78){
+            const sunG=cx.createRadialGradient(W*0.5,sunY,0,W*0.5,sunY,W*0.28);
+            sunG.addColorStop(0,`rgba(255,${Math.floor(L(80,30,p))},${Math.floor(L(10,3,p))},${0.8-p*0.4})`);
+            sunG.addColorStop(0.2,`rgba(220,${Math.floor(L(50,15,p))},0,${0.3-p*0.15})`);
+            sunG.addColorStop(0.6,'rgba(120,20,0,0.06)');sunG.addColorStop(1,'rgba(0,0,0,0)');
+            cx.fillStyle=sunG;cx.fillRect(0,H*0.3,W,H*0.55);
+            if(sunR>0){
+                cx.beginPath();cx.arc(W*0.5,sunY,sunR,0,Math.PI*2);
+                cx.fillStyle=`rgba(255,${Math.floor(L(90,35,p))},${Math.floor(L(15,5,p))},${0.88-p*0.3})`;cx.fill();
+            }
+        }
+        // landscape silhouette — dark tree line
+        cx.beginPath();cx.moveTo(0,H);
+        for(let x=0;x<=W;x+=14)cx.lineTo(x,H*0.72+Math.sin(x*0.004)*22+Math.abs(Math.sin(x*0.002))*H*0.04);
+        cx.lineTo(W,H);cx.closePath();cx.fillStyle='rgba(5,3,2,0.97)';cx.fill();
+        // individual tree silhouettes
+        for(let i=0;i<12;i++){
+            const tx=W*(0.04+i*0.09);const ty=H*0.72+Math.sin(tx*0.004)*22+Math.abs(Math.sin(tx*0.002))*H*0.04;
+            const th=rnd(H*0.06,H*0.14);
+            cx.beginPath();cx.moveTo(tx,ty);cx.lineTo(tx,ty-th);cx.strokeStyle='rgba(4,2,1,0.95)';cx.lineWidth=rnd(3,7);cx.stroke();
+        }
+        // ember bed — the fire dying
+        emberCoals.forEach(e=>{
+            const decay=Math.max(0.05,0.8-p*0.7)*(0.7+Math.sin(gt*0.04+e.ph)*0.3);
+            const eg=cx.createRadialGradient(e.x,e.y,0,e.x,e.y,e.r*decay);
+            eg.addColorStop(0,`rgba(255,${Math.floor(L(100,40,p))},${Math.floor(L(5,0,p))},${decay*0.8})`);
+            eg.addColorStop(0.5,`rgba(180,${Math.floor(L(40,15,p))},0,${decay*0.3})`);
+            eg.addColorStop(1,'rgba(0,0,0,0)');
+            cx.fillStyle=eg;cx.fillRect(e.x-e.r,e.y-e.r,e.r*2,e.r*2);
+        });
+        // ash surface — the record of the fire
+        cx.beginPath();cx.rect(W*0.12,H*0.73,W*0.76,H*0.05);
+        const ashG=cx.createLinearGradient(0,H*0.73,0,H*0.78);
+        ashG.addColorStop(0,`rgba(${Math.floor(L(45,28,p))},${Math.floor(L(38,22,p))},${Math.floor(L(30,16,p))},0.88)`);
+        ashG.addColorStop(1,'rgba(15,10,5,0.95)');
+        cx.fillStyle=ashG;cx.fill();
+        // last sparks
+        risingSparks.forEach(s=>{
+            const heat=Math.max(0,0.8-p*0.75);
+            s.y+=s.vy*heat;s.x+=s.vx*heat+Math.sin(gt*0.02+s.sz)*0.4;s.al*=0.99;
+            if(s.y<H*0.5||s.al<0.03){s.y=H*0.74;s.x=rnd(W*0.2,W*0.8);s.al=rnd(0.3,0.7);}
+            const glow=cx.createRadialGradient(s.x,s.y,0,s.x,s.y,s.sz*3);
+            glow.addColorStop(0,`hsla(${s.hue},95%,${60+heat*25}%,${s.al*heat})`);glow.addColorStop(1,'rgba(0,0,0,0)');
+            cx.fillStyle=glow;cx.fillRect(s.x-s.sz*3.5,s.y-s.sz*3.5,s.sz*7,s.sz*7);
+            cx.beginPath();cx.arc(s.x,s.y,s.sz*(0.5+heat*0.5),0,Math.PI*2);
+            cx.fillStyle=`hsla(${s.hue},100%,75%,${s.al*heat})`;cx.fill();
+        });
+        // first stars appearing in the darkening sky
+        if(p>0.4){
+            for(let i=0;i<40;i++){
+                const sx=((i*337)%W),sy=((i*197)%(H*0.6));
+                const starAl=Math.min(1,(p-0.4)*3*((Math.sin(sy*0.01+i)*0.4)+0.6));
+                if(starAl<0.05)continue;
+                cx.beginPath();cx.arc(sx,sy,rnd(0.4,1.8),0,Math.PI*2);
+                cx.fillStyle=`rgba(255,255,240,${starAl*0.55})`;cx.fill();
+            }
+        }
+    };
+})();
+
+goTo(0);
+document.getElementById('scene-name').textContent=SCENES[0].name;
+masterLoop();
+</script>
+</body>
+</html>

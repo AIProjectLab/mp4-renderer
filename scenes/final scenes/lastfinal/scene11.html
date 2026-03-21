@@ -1,0 +1,1361 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Stoicism Visual Engine V — 20 Cinematic Scenes</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            background: #000;
+            overflow: hidden;
+            font-family: 'Georgia', serif;
+        }
+
+        #stage {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 110px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+        }
+
+        #wrapper {
+            position: relative;
+            transform-origin: center center;
+        }
+
+        #wrapper canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 1920px;
+            height: 1080px;
+            display: none;
+        }
+
+        #wrapper canvas.active {
+            display: block;
+        }
+
+        #panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 110px;
+            background: rgba(2, 2, 4, 0.98);
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            display: flex;
+            flex-direction: column;
+            padding: 0 20px;
+            backdrop-filter: blur(20px);
+        }
+
+        #progress-wrap {
+            height: 3px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            position: relative;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        #progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #e8b86d, #f0d080, #c8903a);
+            width: 0%;
+            transition: width 0.25s linear;
+            position: relative;
+        }
+
+        #progress-fill::after {
+            content: '';
+            position: absolute;
+            right: -5px;
+            top: -4px;
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+            background: #e8b86d;
+            box-shadow: 0 0 12px #e8b86d88;
+        }
+
+        #controls {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 8px 0 4px;
+            flex-shrink: 0;
+        }
+
+        #playbtn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: 1px solid rgba(232, 184, 109, 0.45);
+            background: rgba(232, 184, 109, 0.07);
+            color: #e8b86d;
+            font-size: 17px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all .2s;
+            flex-shrink: 0;
+        }
+
+        #playbtn:hover {
+            background: rgba(232, 184, 109, 0.18);
+            border-color: #e8b86d;
+        }
+
+        .navbtn {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: transparent;
+            color: rgba(255, 255, 255, 0.45);
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all .2s;
+            flex-shrink: 0;
+        }
+
+        .navbtn:hover {
+            border-color: rgba(255, 255, 255, 0.3);
+            color: #fff;
+        }
+
+        #scene-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            margin-right: auto;
+        }
+
+        #scene-name {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.82);
+            letter-spacing: .04em;
+        }
+
+        #scene-sub {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.22);
+            letter-spacing: .1em;
+            text-transform: uppercase;
+        }
+
+        #timer-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        #timer-display {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.3);
+            letter-spacing: .08em;
+            font-variant-numeric: tabular-nums;
+        }
+
+        #speed-btn {
+            padding: 4px 11px;
+            border-radius: 3px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: transparent;
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 11px;
+            cursor: pointer;
+            transition: all .2s;
+        }
+
+        #speed-btn:hover {
+            border-color: rgba(255, 255, 255, 0.28);
+            color: rgba(255, 255, 255, 0.65);
+        }
+
+        #strip-wrap {
+            overflow-x: auto;
+            flex: 1;
+            padding: 5px 0 8px;
+            scrollbar-width: none;
+        }
+
+        #strip-wrap::-webkit-scrollbar {
+            display: none;
+        }
+
+        #strip {
+            display: flex;
+            gap: 7px;
+            align-items: center;
+            min-width: max-content;
+        }
+
+        .thumb {
+            flex-shrink: 0;
+            width: 90px;
+            height: 42px;
+            border-radius: 5px;
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            background: rgba(255, 255, 255, 0.03);
+            cursor: pointer;
+            transition: all .15s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .thumb:hover {
+            border-color: rgba(255, 255, 255, 0.22);
+            background: rgba(255, 255, 255, 0.07);
+        }
+
+        .thumb.active {
+            border-color: #e8b86d;
+            background: rgba(232, 184, 109, 0.08);
+        }
+
+        .thumb .tnum {
+            font-size: 9px;
+            color: rgba(255, 255, 255, 0.2);
+            letter-spacing: .08em;
+        }
+
+        .thumb .tname {
+            font-size: 9px;
+            color: rgba(255, 255, 255, 0.5);
+            text-align: center;
+            line-height: 1.25;
+            padding: 0 5px;
+        }
+
+        .thumb.active .tname {
+            color: #e8b86d;
+        }
+
+        .thumb .tbar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #e8b86d, #f0d080);
+            width: 0%;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="stage">
+        <div id="wrapper"></div>
+    </div>
+    <div id="panel">
+        <div id="progress-wrap" onclick="seekClick(event)">
+            <div id="progress-fill"></div>
+        </div>
+        <div id="controls">
+            <button class="navbtn" onclick="prev()">&#9664;</button>
+            <button id="playbtn" onclick="togglePlay()">&#9654;</button>
+            <button class="navbtn" onclick="next()">&#9654;&#9654;</button>
+            <div id="scene-info">
+                <div id="scene-name">Loading…</div>
+                <div id="scene-sub">Cinematic Series V · 1920×1080</div>
+            </div>
+            <div id="timer-wrap">
+                <div id="timer-display">0:00 / 0:00</div>
+                <button id="speed-btn" onclick="cycleSpeed()">1×</button>
+            </div>
+        </div>
+        <div id="strip-wrap">
+            <div id="strip"></div>
+        </div>
+    </div>
+    <script>
+        const W = 1920, H = 1080;
+        const SCENES = [
+            { name: 'Tide Retreat',        sub: 'The sea releases without grief',        dur: 30 },
+            { name: 'Candle in Gale',      sub: 'Small flame. Total refusal.',           dur: 30 },
+            { name: 'Bone to Fossil',      sub: 'What endures becomes the record',       dur: 30 },
+            { name: 'Swarm Intelligence',  sub: 'One mind. Ten thousand bodies.',         dur: 30 },
+            { name: 'Iron Rust',           sub: 'Even strength has a patience',           dur: 30 },
+            { name: 'Smoke Calligraphy',   sub: 'Written and erased in the same breath', dur: 30 },
+            { name: 'Deep Roots',          sub: 'The invisible work holds everything',   dur: 30 },
+            { name: 'Star Trail',          sub: 'All motion is relative. Rest is rare.', dur: 30 },
+            { name: 'Drought Crack',       sub: 'Patience split open at last',           dur: 30 },
+            { name: 'Whale Breach',        sub: 'Joy that asks no permission',           dur: 30 },
+            { name: 'Glacier Vein',        sub: 'Blue light inside ten thousand years',  dur: 30 },
+            { name: 'Desert Night Sky',    sub: 'Clarity needs nothing but darkness',    dur: 30 },
+            { name: 'Cell Division',       sub: 'Every beginning splits from itself',    dur: 30 },
+            { name: 'Bridge Shadow',       sub: 'The path casts no doubt on the shore',  dur: 30 },
+            { name: 'Spiderweb Dew',       sub: 'Each drop holds a whole world',       dur: 30 },
+            { name: 'Magma Chamber',       sub: 'Pressure long enough becomes change',   dur: 30 },
+            { name: 'Dandelion Clock',     sub: 'Every dispersal is a kind of faith',    dur: 30 },
+            { name: 'Frozen Waterfall',    sub: 'Motion suspended mid-surrender',        dur: 30 },
+            { name: 'Coral Bleaching',     sub: 'Beauty is not the same as permanence',  dur: 30 },
+            { name: 'Distant Lighthouse',  sub: 'Signal without expectation of reply',   dur: 30 },
+        ];
+
+        const SPEEDS = [1, 1.5, 2, 0.5];
+        let speedIdx = 0, cur = 0, playing = false, sT = 0, frameT = 0;
+        const FPS = 60;
+        const ctxs = [];
+
+        const wrapper = document.getElementById('wrapper');
+        wrapper.style.width = W + 'px'; wrapper.style.height = H + 'px';
+        for (let i = 0; i < SCENES.length; i++) {
+            const c = document.createElement('canvas');
+            c.width = W; c.height = H; c.id = 'cv' + i;
+            wrapper.appendChild(c); ctxs.push(c.getContext('2d'));
+        }
+
+        function scaleStage() {
+            const st = document.getElementById('stage');
+            const s = Math.min(st.clientWidth / W, st.clientHeight / H);
+            wrapper.style.transform = `scale(${s})`;
+            wrapper.style.marginLeft = ((st.clientWidth - W * s) / 2) + 'px';
+            wrapper.style.marginTop = ((st.clientHeight - H * s) / 2) + 'px';
+        }
+        window.addEventListener('resize', scaleStage); scaleStage();
+
+        const strip = document.getElementById('strip');
+        SCENES.forEach((sc, i) => {
+            const d = document.createElement('div');
+            d.className = 'thumb' + (i === 0 ? ' active' : ''); d.id = 'th' + i;
+            d.innerHTML = `<div class="tnum">${String(i + 1).padStart(2, '0')}</div><div class="tname">${sc.name}</div><div class="tbar" id="tb${i}"></div>`;
+            d.onclick = () => goTo(i); strip.appendChild(d);
+        });
+
+        function goTo(i) {
+            document.getElementById('cv' + cur).classList.remove('active');
+            document.getElementById('th' + cur).classList.remove('active');
+            document.getElementById('tb' + cur).style.width = '0%';
+            cur = i; sT = 0;
+            document.getElementById('cv' + i).classList.add('active');
+            document.getElementById('th' + i).classList.add('active');
+            document.getElementById('scene-name').textContent = SCENES[i].name;
+            document.getElementById('th' + i).scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        }
+        function prev() { if (cur > 0) goTo(cur - 1); }
+        function next() { if (cur < SCENES.length - 1) goTo(cur + 1); }
+        function togglePlay() { playing = !playing; document.getElementById('playbtn').innerHTML = playing ? '&#9646;&#9646;' : '&#9654;'; }
+        function cycleSpeed() { speedIdx = (speedIdx + 1) % SPEEDS.length; document.getElementById('speed-btn').textContent = SPEEDS[speedIdx] + '×'; }
+        function seekClick(e) {
+            const rect = e.currentTarget.getBoundingClientRect(); const pct = (e.clientX - rect.left) / rect.width;
+            const tot = SCENES.reduce((a, s) => a + s.dur, 0); let acc = 0, tgt = pct * tot;
+            for (let i = 0; i < SCENES.length; i++) {
+                if (acc + SCENES[i].dur >= tgt) { goTo(i); sT = Math.floor((tgt - acc) * FPS / SPEEDS[speedIdx]); break; }
+                acc += SCENES[i].dur;
+            }
+        }
+        function fmt(s) { return Math.floor(s / 60) + ':' + (s % 60 < 10 ? '0' : '') + s % 60; }
+
+        function masterLoop() {
+            requestAnimationFrame(masterLoop); frameT++;
+            const sc = SCENES[cur]; const tot = sc.dur * FPS / SPEEDS[speedIdx];
+            if (playing) { sT++; if (sT >= tot) { if (cur < SCENES.length - 1) goTo(cur + 1); else { playing = false; document.getElementById('playbtn').innerHTML = '&#9654;'; } } }
+            R[cur](frameT, sT, tot);
+            const pct = Math.min(1, sT / tot) * 100;
+            document.getElementById('tb' + cur).style.width = pct + '%';
+            const el = Math.floor(sT / FPS * SPEEDS[speedIdx]);
+            document.getElementById('timer-display').textContent = fmt(el) + ' / ' + fmt(sc.dur);
+            const totD = SCENES.reduce((a, s) => a + s.dur, 0);
+            const doneD = SCENES.slice(0, cur).reduce((a, s) => a + s.dur, 0) + el;
+            document.getElementById('progress-fill').style.width = (doneD / totD * 100) + '%';
+        }
+
+        const L = (a, b, t) => a + (b - a) * t;
+        const rnd = (a, b) => a + Math.random() * (b - a);
+        const ei = (t) => t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        const R = [];
+
+        /* ═══════════════════════════════════
+           0 · TIDE RETREAT
+           Ocean pulls back slowly — wet sand
+           reveals what the water was hiding
+        ═══════════════════════════════════ */
+        (() => {
+            const foam = Array.from({ length: 120 }, () => ({ x: rnd(0, W), y: rnd(H * 0.55, H * 0.7), vx: rnd(-0.3, 0.3), sz: rnd(3, 18), ph: Math.random() * Math.PI * 2 }));
+            R[0] = (gt, st, tot) => {
+                const cx = ctxs[0]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(2,5,10,0.2)'; cx.fillRect(0, 0, W, H);
+                // sky
+                const sky = cx.createLinearGradient(0, 0, 0, H * 0.45);
+                sky.addColorStop(0, `rgba(${Math.floor(L(10,50,p))},${Math.floor(L(15,70,p))},${Math.floor(L(35,100,p))},0.5)`);
+                sky.addColorStop(1, 'rgba(0,0,0,0)');
+                cx.fillStyle = sky; cx.fillRect(0, 0, W, H * 0.45);
+                // retreating waterline
+                const waterY = H * (0.45 + p * 0.22);
+                cx.beginPath(); cx.moveTo(0, H);
+                for (let x = 0; x <= W; x += 8) cx.lineTo(x, waterY + Math.sin(x * 0.006 + gt * 0.02) * 14);
+                cx.lineTo(W, H); cx.closePath();
+                const wg = cx.createLinearGradient(0, waterY, 0, H);
+                wg.addColorStop(0, `rgba(30,80,130,${0.85 - p * 0.3})`); wg.addColorStop(1, 'rgba(8,30,60,0.9)');
+                cx.fillStyle = wg; cx.fill();
+                // wet sand revealed
+                const sandG = cx.createLinearGradient(0, H * 0.45, 0, waterY);
+                sandG.addColorStop(0, `rgba(90,80,60,${p * 0.9})`); sandG.addColorStop(1, `rgba(70,65,50,${p * 0.7})`);
+                cx.fillStyle = sandG; cx.fillRect(0, H * 0.45, W, waterY - H * 0.45);
+                // foam at waterline
+                foam.forEach(f => {
+                    f.x += f.vx; if (f.x < 0) f.x = W; if (f.x > W) f.x = 0;
+                    const tw = Math.sin(gt * 0.04 + f.ph) * 0.3 + 0.7;
+                    cx.beginPath(); cx.ellipse(f.x, waterY - 4, f.sz * tw, f.sz * 0.35 * tw, 0, 0, Math.PI * 2);
+                    cx.fillStyle = `rgba(220,235,248,${tw * 0.4 * (1 - p * 0.5)})`; cx.fill();
+                });
+                // tide pool reflections in wet sand
+                for (let i = 0; i < 8; i++) {
+                    const px = W * (0.08 + i * 0.11), py = H * 0.5 + i * 12;
+                    if (py >= waterY) continue;
+                    const rg = cx.createRadialGradient(px, py, 0, px, py, 30 + i * 8);
+                    rg.addColorStop(0, `rgba(50,110,180,${p * 0.25})`); rg.addColorStop(1, 'rgba(0,0,0,0)');
+                    cx.fillStyle = rg; cx.fillRect(px - 45, py - 15, 90, 30);
+                }
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           1 · CANDLE IN GALE
+           One flame holds against the wind
+        ═══════════════════════════════════ */
+        (() => {
+            R[1] = (gt, st, tot) => {
+                const cx = ctxs[1]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(3,2,1,0.28)'; cx.fillRect(0, 0, W, H);
+                // wind streak lines
+                for (let i = 0; i < 18; i++) {
+                    const wy = rnd(0, H), wlen = rnd(80, 350), wAl = 0.06 + p * 0.08;
+                    cx.beginPath(); cx.moveTo(0, wy); cx.lineTo(wlen + Math.sin(gt * 0.02 + i) * 40, wy + rnd(-5, 5));
+                    cx.strokeStyle = `rgba(180,180,200,${wAl})`; cx.lineWidth = rnd(0.4, 1.5); cx.stroke();
+                }
+                // candle body
+                const cx2 = W * 0.5, cy = H * 0.62;
+                cx.beginPath(); cx.rect(cx2 - 14, cy, 28, H * 0.22); cx.fillStyle = 'rgba(230,220,195,0.92)'; cx.fill();
+                cx.beginPath(); cx.rect(cx2 - 16, cy + H * 0.22, 32, 12); cx.fillStyle = 'rgba(60,50,35,0.9)'; cx.fill();
+                // wick
+                cx.beginPath(); cx.moveTo(cx2, cy); cx.lineTo(cx2 + Math.sin(gt * 0.06) * 4, cy - 18);
+                cx.strokeStyle = 'rgba(30,20,10,0.9)'; cx.lineWidth = 2; cx.stroke();
+                // flame — bent by wind
+                const windBend = Math.sin(gt * 0.04) * 12 + p * 28;
+                const flameY = cy - 22;
+                const fg = cx.createRadialGradient(cx2 + windBend * 0.4, flameY - 20, 0, cx2 + windBend * 0.2, flameY, 40);
+                fg.addColorStop(0, 'rgba(255,255,200,0.98)'); fg.addColorStop(0.3, 'rgba(255,180,40,0.8)');
+                fg.addColorStop(0.7, 'rgba(255,80,10,0.35)'); fg.addColorStop(1, 'rgba(0,0,0,0)');
+                cx.fillStyle = fg; cx.fillRect(cx2 - 50 + windBend * 0.2, flameY - 60, 100, 80);
+                // flame glow
+                const glow = cx.createRadialGradient(cx2, flameY, 0, cx2, flameY, 220);
+                glow.addColorStop(0, `rgba(255,160,30,${0.18 - p * 0.06})`); glow.addColorStop(1, 'rgba(0,0,0,0)');
+                cx.fillStyle = glow; cx.fillRect(0, 0, W, H);
+                // wax drips
+                for (let d = 0; d < 3; d++) {
+                    cx.beginPath(); cx.ellipse(cx2 + (d - 1) * 10, cy + d * 8, 5, 12, 0, 0, Math.PI * 2);
+                    cx.fillStyle = `rgba(225,215,190,${0.7 + d * 0.1})`; cx.fill();
+                }
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           2 · BONE TO FOSSIL
+           Sediment layers press a record
+           into stone over millennia
+        ═══════════════════════════════════ */
+        (() => {
+            const sedLayers = Array.from({ length: 12 }, (_, i) => ({ y: H * 0.28 + i * H * 0.052, hue: 28 - i * 1.5, light: 28 - i * 1.5 }));
+            R[2] = (gt, st, tot) => {
+                const cx = ctxs[2]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(6,5,3,0.2)'; cx.fillRect(0, 0, W, H);
+                // sediment strata
+                sedLayers.forEach((l, i) => {
+                    cx.beginPath(); cx.moveTo(0, l.y + Math.sin(gt * 0.005 + i * 0.3) * 6);
+                    for (let x = 0; x <= W; x += 10) cx.lineTo(x, l.y + Math.sin(x * 0.004 + i * 0.5) * 8 + Math.sin(gt * 0.005 + i * 0.3) * 4);
+                    cx.lineTo(W, H); cx.lineTo(0, H); cx.closePath();
+                    cx.fillStyle = `rgba(${Math.floor(50 + i * 4)},${Math.floor(38 + i * 3)},${Math.floor(20 + i * 2)},0.9)`; cx.fill();
+                });
+                // fossil outline appearing (bone shape in center)
+                const fo = p; const fx = W * 0.5, fy = H * 0.55;
+                cx.save(); cx.globalAlpha = Math.min(1, fo * 1.5);
+                // rib cage silhouette
+                for (let r = 0; r < 7; r++) {
+                    const ry = fy - 80 + r * 24;
+                    cx.beginPath(); cx.moveTo(fx - 8, ry);
+                    cx.bezierCurveTo(fx - 80, ry - 18, fx - 90, ry + 10, fx - 60, ry + 20);
+                    cx.strokeStyle = `rgba(200,185,150,${fo * 0.7})`; cx.lineWidth = 2.5; cx.stroke();
+                    cx.beginPath(); cx.moveTo(fx + 8, ry);
+                    cx.bezierCurveTo(fx + 80, ry - 18, fx + 90, ry + 10, fx + 60, ry + 20);
+                    cx.strokeStyle = `rgba(200,185,150,${fo * 0.7})`; cx.lineWidth = 2.5; cx.stroke();
+                }
+                // spine
+                cx.beginPath(); cx.moveTo(fx, fy - 95); cx.lineTo(fx, fy + 50);
+                cx.strokeStyle = `rgba(210,195,160,${fo * 0.8})`; cx.lineWidth = 5; cx.stroke();
+                cx.restore();
+                // pressure darkening overlay
+                const pDark = cx.createLinearGradient(0, 0, 0, H);
+                pDark.addColorStop(0, 'rgba(0,0,0,0)'); pDark.addColorStop(1, `rgba(0,0,0,${p * 0.4})`);
+                cx.fillStyle = pDark; cx.fillRect(0, 0, W, H);
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           3 · SWARM INTELLIGENCE
+           Thousands of points think as one
+        ═══════════════════════════════════ */
+        (() => {
+            const agents = Array.from({ length: 600 }, () => ({ x: rnd(0, W), y: rnd(0, H), vx: rnd(-1.5, 1.5), vy: rnd(-1.5, 1.5), ph: Math.random() * Math.PI * 2 }));
+            R[3] = (gt, st, tot) => {
+                const cx = ctxs[3]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(1,2,5,0.22)'; cx.fillRect(0, 0, W, H);
+                const targetX = W * 0.5 + Math.cos(gt * 0.012) * W * 0.28;
+                const targetY = H * 0.5 + Math.sin(gt * 0.009) * H * 0.22;
+                agents.forEach(a => {
+                    const dx = targetX - a.x, dy = targetY - a.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy) + 1;
+                    a.vx += (dx / dist) * 0.15 * p + (Math.random() - 0.5) * 0.6 * (1 - p);
+                    a.vy += (dy / dist) * 0.15 * p + (Math.random() - 0.5) * 0.6 * (1 - p);
+                    const spd = Math.sqrt(a.vx * a.vx + a.vy * a.vy);
+                    if (spd > 3.5) { a.vx = (a.vx / spd) * 3.5; a.vy = (a.vy / spd) * 3.5; }
+                    a.x += a.vx; a.y += a.vy;
+                    if (a.x < 0) a.x = W; if (a.x > W) a.x = 0;
+                    if (a.y < 0) a.y = H; if (a.y > H) a.y = 0;
+                    cx.beginPath(); cx.arc(a.x, a.y, 2.2, 0, Math.PI * 2);
+                    cx.fillStyle = `rgba(${Math.floor(L(180, 255, p))},${Math.floor(L(200, 220, p))},255,0.55)`; cx.fill();
+                });
+                // swarm target glow
+                const tg = cx.createRadialGradient(targetX, targetY, 0, targetX, targetY, 90);
+                tg.addColorStop(0, `rgba(180,220,255,${p * 0.12})`); tg.addColorStop(1, 'rgba(0,0,0,0)');
+                cx.fillStyle = tg; cx.fillRect(0, 0, W, H);
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           4 · IRON RUST
+           The slow patient work of oxidation
+        ═══════════════════════════════════ */
+        (() => {
+            const rustSpots = Array.from({ length: 80 }, () => ({ x: rnd(W * 0.12, W * 0.88), y: rnd(H * 0.18, H * 0.82), r: rnd(15, 80), born: Math.random() }));
+            R[4] = (gt, st, tot) => {
+                const cx = ctxs[4]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(5,4,3,0.22)'; cx.fillRect(0, 0, W, H);
+                // iron surface
+                const ironG = cx.createLinearGradient(0, H * 0.15, 0, H * 0.85);
+                ironG.addColorStop(0, 'rgba(45,45,48,0.9)'); ironG.addColorStop(0.5, 'rgba(60,58,62,0.88)');
+                ironG.addColorStop(1, 'rgba(38,36,40,0.9)');
+                cx.fillStyle = ironG; cx.fillRect(W * 0.1, H * 0.15, W * 0.8, H * 0.7);
+                // metal sheen
+                const sheen = cx.createLinearGradient(W * 0.1, H * 0.15, W * 0.5, H * 0.45);
+                sheen.addColorStop(0, 'rgba(180,180,190,0.06)'); sheen.addColorStop(1, 'rgba(0,0,0,0)');
+                cx.fillStyle = sheen; cx.fillRect(W * 0.1, H * 0.15, W * 0.8, H * 0.7);
+                // rust blooms spreading
+                rustSpots.forEach(rs => {
+                    const vis = Math.max(0, (p - rs.born * 0.6) * 2.5);
+                    if (vis < 0.01) return;
+                    const rg = cx.createRadialGradient(rs.x, rs.y, 0, rs.x, rs.y, rs.r * Math.min(1, vis));
+                    rg.addColorStop(0, `rgba(160,60,10,${vis * 0.85})`);
+                    rg.addColorStop(0.4, `rgba(130,45,8,${vis * 0.6})`);
+                    rg.addColorStop(0.8, `rgba(100,30,5,${vis * 0.3})`);
+                    rg.addColorStop(1, 'rgba(0,0,0,0)');
+                    cx.fillStyle = rg; cx.fillRect(rs.x - rs.r, rs.y - rs.r, rs.r * 2, rs.r * 2);
+                });
+                // surface texture lines
+                for (let i = 0; i < 6; i++) {
+                    const ly = H * 0.2 + i * H * 0.1;
+                    cx.beginPath(); cx.moveTo(W * 0.1, ly); cx.lineTo(W * 0.9, ly);
+                    cx.strokeStyle = `rgba(20,18,22,${0.15 - i * 0.01})`; cx.lineWidth = 1; cx.stroke();
+                }
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           5 · SMOKE CALLIGRAPHY
+           Strokes written in the air —
+           then given to the wind
+        ═══════════════════════════════════ */
+        (() => {
+            const puffs = Array.from({ length: 180 }, () => ({
+                x: W * 0.5 + rnd(-60, 60), y: H * 0.7 + rnd(-30, 30),
+                vx: rnd(-0.6, 0.6), vy: -rnd(0.5, 2.2), sz: rnd(8, 40),
+                ph: Math.random() * Math.PI * 2, al: rnd(0.04, 0.14)
+            }));
+            R[5] = (gt, st, tot) => {
+                const cx = ctxs[5]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(4,3,5,0.25)'; cx.fillRect(0, 0, W, H);
+                // incense source glow
+                const ig = cx.createRadialGradient(W * 0.5, H * 0.72, 0, W * 0.5, H * 0.72, 60);
+                ig.addColorStop(0, `rgba(255,200,100,${0.12 + Math.sin(gt * 0.05) * 0.03})`); ig.addColorStop(1, 'rgba(0,0,0,0)');
+                cx.fillStyle = ig; cx.fillRect(0, H * 0.6, W, H * 0.2);
+                // incense stick
+                cx.beginPath(); cx.moveTo(W * 0.5, H * 0.72); cx.lineTo(W * 0.5 + 4, H * 0.95);
+                cx.strokeStyle = 'rgba(80,55,30,0.85)'; cx.lineWidth = 3; cx.stroke();
+                cx.beginPath(); cx.arc(W * 0.5, H * 0.72, 4, 0, Math.PI * 2);
+                cx.fillStyle = 'rgba(255,120,20,0.9)'; cx.fill();
+                // smoke puffs rising and dispersing
+                puffs.forEach(pf => {
+                    pf.y += pf.vy; pf.x += pf.vx + Math.sin(gt * 0.015 + pf.ph) * 1.2;
+                    pf.sz += 0.15; if (pf.y < -60) { pf.y = H * 0.72; pf.x = W * 0.5 + rnd(-20, 20); pf.sz = rnd(8, 20); }
+                    const fade = Math.max(0, 1 - (H * 0.72 - pf.y) / (H * 0.75));
+                    const sg = cx.createRadialGradient(pf.x, pf.y, 0, pf.x, pf.y, pf.sz);
+                    sg.addColorStop(0, `rgba(160,150,170,${pf.al * fade})`); sg.addColorStop(1, 'rgba(0,0,0,0)');
+                    cx.fillStyle = sg; cx.fillRect(pf.x - pf.sz, pf.y - pf.sz, pf.sz * 2, pf.sz * 2);
+                });
+                // calligraphic stroke suggestions in the smoke
+                cx.beginPath(); cx.moveTo(W * 0.42, H * 0.42);
+                cx.bezierCurveTo(W * 0.55, H * 0.28, W * 0.62, H * 0.35, W * 0.58, H * 0.18);
+                cx.strokeStyle = `rgba(180,170,190,${p * 0.08})`; cx.lineWidth = 18; cx.lineCap = 'round'; cx.stroke();
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           6 · DEEP ROOTS
+           Underground network of life —
+           the invisible holds the visible
+        ═══════════════════════════════════ */
+        (() => {
+            function branch(cx, x, y, angle, len, depth, p) {
+                if (depth === 0 || len < 4) return;
+                const ex = x + Math.cos(angle) * len, ey = y + Math.sin(angle) * len;
+                cx.beginPath(); cx.moveTo(x, y); cx.lineTo(ex, ey);
+                cx.strokeStyle = `rgba(${Math.floor(L(90, 55, depth / 8))},${Math.floor(L(65, 38, depth / 8))},${Math.floor(L(30, 18, depth / 8))},${0.5 + (8 - depth) * 0.04})`;
+                cx.lineWidth = Math.max(0.5, depth * 0.6); cx.stroke();
+                if ((8 - depth) / 8 < p) {
+                    branch(cx, ex, ey, angle - rnd(0.3, 0.7), len * rnd(0.6, 0.78), depth - 1, p);
+                    branch(cx, ex, ey, angle + rnd(0.3, 0.7), len * rnd(0.6, 0.78), depth - 1, p);
+                }
+            }
+            const rootSeeds = Array.from({ length: 7 }, (_, i) => ({ x: W * (0.1 + i * 0.14), angle: Math.PI * 0.5 + rnd(-0.3, 0.3) }));
+            R[6] = (gt, st, tot) => {
+                const cx = ctxs[6]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(4,3,2,0.22)'; cx.fillRect(0, 0, W, H);
+                // soil layers
+                const soilG = cx.createLinearGradient(0, H * 0.08, 0, H);
+                soilG.addColorStop(0, 'rgba(35,25,12,0.6)'); soilG.addColorStop(0.5, 'rgba(25,16,8,0.5)');
+                soilG.addColorStop(1, 'rgba(15,8,4,0.7)');
+                cx.fillStyle = soilG; cx.fillRect(0, H * 0.08, W, H * 0.92);
+                // root networks
+                rootSeeds.forEach(rs => branch(cx, rs.x, H * 0.12, rs.angle, 90, 8, p));
+                // soil surface
+                cx.beginPath(); cx.moveTo(0, H * 0.1);
+                for (let x = 0; x <= W; x += 12) cx.lineTo(x, H * 0.08 + Math.sin(x * 0.005) * 18);
+                cx.lineTo(W, 0); cx.lineTo(0, 0); cx.closePath();
+                cx.fillStyle = 'rgba(3,2,1,0.97)'; cx.fill();
+                // faint tree silhouette above ground
+                cx.beginPath(); cx.moveTo(W * 0.5, H * 0.08); cx.lineTo(W * 0.5, H * 0.01);
+                cx.strokeStyle = `rgba(20,15,8,${p * 0.5})`; cx.lineWidth = 8; cx.stroke();
+                // moisture glow around roots
+                const mg = cx.createRadialGradient(W * 0.5, H * 0.5, 0, W * 0.5, H * 0.5, W * 0.4);
+                mg.addColorStop(0, `rgba(30,60,20,${p * 0.06})`); mg.addColorStop(1, 'rgba(0,0,0,0)');
+                cx.fillStyle = mg; cx.fillRect(0, H * 0.1, W, H * 0.9);
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           7 · STAR TRAIL
+           Earth turns, stars trace arcs —
+           motion reveals the fixed
+        ═══════════════════════════════════ */
+        (() => {
+            const stars = Array.from({ length: 280 }, (_, i) => ({
+                a: rnd(0, Math.PI * 2), r: rnd(60, 520),
+                hue: rnd(200, 260), sz: rnd(0.5, 2.2)
+            }));
+            R[7] = (gt, st, tot) => {
+                const cx = ctxs[7]; const p = ei(st / tot);
+                cx.fillStyle = `rgba(0,0,4,${0.12 + p * 0.06})`; cx.fillRect(0, 0, W, H);
+                const cx2 = W * 0.5, cy = H * 0.5;
+                const rotRate = 0.003;
+                stars.forEach(s => {
+                    // draw trail arc proportional to p
+                    const trailLen = p * Math.PI * 1.8;
+                    if (trailLen > 0.01) {
+                        cx.beginPath();
+                        cx.arc(cx2, cy, s.r, s.a + gt * rotRate - trailLen, s.a + gt * rotRate, false);
+                        const trailG = cx.createLinearGradient(
+                            cx2 + Math.cos(s.a + gt * rotRate - trailLen) * s.r, cy + Math.sin(s.a + gt * rotRate - trailLen) * s.r * 0.6,
+                            cx2 + Math.cos(s.a + gt * rotRate) * s.r, cy + Math.sin(s.a + gt * rotRate) * s.r * 0.6
+                        );
+                        trailG.addColorStop(0, 'rgba(255,255,255,0)');
+                        trailG.addColorStop(1, `hsla(${s.hue},60%,85%,${0.55 * p})`);
+                        cx.strokeStyle = trailG; cx.lineWidth = s.sz; cx.stroke();
+                    }
+                    // star dot
+                    const sx = cx2 + Math.cos(s.a + gt * rotRate) * s.r;
+                    const sy = cy + Math.sin(s.a + gt * rotRate) * s.r * 0.6;
+                    cx.beginPath(); cx.arc(sx, sy, s.sz, 0, Math.PI * 2);
+                    cx.fillStyle = `hsla(${s.hue},50%,90%,0.9)`; cx.fill();
+                });
+                // polar glow at center
+                const pole = cx.createRadialGradient(cx2, cy, 0, cx2, cy, 80);
+                pole.addColorStop(0, `rgba(200,220,255,${p * 0.15})`); pole.addColorStop(1, 'rgba(0,0,0,0)');
+                cx.fillStyle = pole; cx.fillRect(0, 0, W, H);
+                // horizon silhouette
+                cx.beginPath(); cx.moveTo(0, H);
+                for (let x = 0; x <= W; x += 14) cx.lineTo(x, H * 0.8 + Math.sin(x * 0.003) * 35 + Math.sin(x * 0.008 + 1) * 15);
+                cx.lineTo(W, H); cx.closePath(); cx.fillStyle = 'rgba(2,2,4,0.97)'; cx.fill();
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           8 · DROUGHT CRACK
+           Earth splits open after
+           months of silence
+        ═══════════════════════════════════ */
+        (() => {
+            function makeCrack(x, y, angle, len, depth) {
+                if (depth === 0 || len < 8) return [];
+                const pts = [{ x, y }];
+                let cx2 = x, cy2 = y, a = angle;
+                for (let i = 0; i < 5; i++) {
+                    a += rnd(-0.5, 0.5); cx2 += Math.cos(a) * len / 5; cy2 += Math.sin(a) * len / 5;
+                    pts.push({ x: cx2, y: cy2 });
+                }
+                const branches = depth > 1 ? [
+                    ...makeCrack(cx2, cy2, a - rnd(0.4, 0.9), len * rnd(0.5, 0.7), depth - 1),
+                    ...makeCrack(cx2, cy2, a + rnd(0.4, 0.9), len * rnd(0.4, 0.6), depth - 2)
+                ] : [];
+                return [{ pts, depth }, ...branches];
+            }
+            const cracks = [];
+            for (let i = 0; i < 8; i++) cracks.push(...makeCrack(rnd(W * 0.1, W * 0.9), rnd(H * 0.3, H * 0.75), rnd(0, Math.PI * 2), rnd(120, 220), 4));
+            R[8] = (gt, st, tot) => {
+                const cx = ctxs[8]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(7,5,3,0.22)'; cx.fillRect(0, 0, W, H);
+                // parched earth
+                const earthG = cx.createLinearGradient(0, 0, 0, H);
+                earthG.addColorStop(0, `rgba(${Math.floor(L(100,70,p))},${Math.floor(L(75,50,p))},${Math.floor(L(38,22,p))},0.92)`);
+                earthG.addColorStop(1, 'rgba(30,20,8,0.98)');
+                cx.fillStyle = earthG; cx.fillRect(0, 0, W, H);
+                // cracks widening
+                cracks.forEach(cr => {
+                    const crVis = Math.min(1, p * 2);
+                    if (crVis < 0.01) return;
+                    cx.beginPath(); cx.moveTo(cr.pts[0].x, cr.pts[0].y);
+                    cr.pts.forEach(pt => cx.lineTo(pt.x, pt.y));
+                    cx.strokeStyle = `rgba(10,6,2,${crVis * 0.8})`;
+                    cx.lineWidth = Math.max(0.5, (cr.depth - 1) * 1.2 * crVis); cx.stroke();
+                });
+                // heat shimmer
+                for (let i = 0; i < 6; i++) {
+                    const hx = rnd(0, W), hy = rnd(H * 0.3, H * 0.7);
+                    const hg = cx.createRadialGradient(hx, hy, 0, hx, hy, 80 + i * 20);
+                    hg.addColorStop(0, `rgba(180,120,40,${0.04 + Math.sin(gt * 0.02 + i) * 0.01})`); hg.addColorStop(1, 'rgba(0,0,0,0)');
+                    cx.fillStyle = hg; cx.fillRect(hx - 100, hy - 100, 200, 200);
+                }
+                // sun overhead
+                const sunG = cx.createRadialGradient(W * 0.62, H * 0.06, 0, W * 0.62, H * 0.06, W * 0.28);
+                sunG.addColorStop(0, `rgba(255,240,160,${0.25 + p * 0.15})`); sunG.addColorStop(1, 'rgba(0,0,0,0)');
+                cx.fillStyle = sunG; cx.fillRect(0, 0, W, H * 0.4);
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           9 · WHALE BREACH
+           Joy that needs no permission —
+           the whole ocean as launch pad
+        ═══════════════════════════════════ */
+        (() => {
+            const spray = Array.from({ length: 80 }, () => ({ vx: rnd(-5, 5), vy: rnd(-8, -2), x: 0, y: 0, sz: rnd(2, 8), al: rnd(0.3, 0.7) }));
+            R[9] = (gt, st, tot) => {
+                const cx = ctxs[9]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(0,4,12,0.2)'; cx.fillRect(0, 0, W, H);
+                // ocean sky
+                const sky = cx.createLinearGradient(0, 0, 0, H * 0.48);
+                sky.addColorStop(0, 'rgba(10,22,55,0.5)'); sky.addColorStop(1, 'rgba(0,0,0,0)');
+                cx.fillStyle = sky; cx.fillRect(0, 0, W, H * 0.48);
+                // ocean surface
+                const waterY = H * 0.52;
+                cx.beginPath(); cx.moveTo(0, H);
+                for (let x = 0; x <= W; x += 8) cx.lineTo(x, waterY + Math.sin(x * 0.006 + gt * 0.018) * 16 + Math.sin(x * 0.014 + gt * 0.03) * 7);
+                cx.lineTo(W, H); cx.closePath();
+                const wg = cx.createLinearGradient(0, waterY, 0, H);
+                wg.addColorStop(0, 'rgba(15,55,110,0.9)'); wg.addColorStop(1, 'rgba(5,20,50,0.98)');
+                cx.fillStyle = wg; cx.fill();
+                // whale arc — breach parabola
+                const phase = (p * 2 % 1); // 0→1 = rise, loops
+                const wY = waterY - Math.sin(phase * Math.PI) * H * 0.58;
+                const wX = W * 0.48 + phase * W * 0.06;
+                const leapAngle = -Math.PI * 0.3 + phase * Math.PI * 0.6;
+                if (wY < waterY + 30) {
+                    spray.forEach(s => {
+                        const elapsed = (phase * 180) % 60;
+                        const sx = wX + s.vx * elapsed, sy = waterY + s.vy * elapsed + 0.2 * elapsed * elapsed;
+                        if (sy > waterY) return;
+                        cx.beginPath(); cx.arc(sx, sy, s.sz * (1 - elapsed / 60), 0, Math.PI * 2);
+                        cx.fillStyle = `rgba(180,220,255,${s.al * (1 - elapsed / 60)})`; cx.fill();
+                    });
+                }
+                // whale body
+                cx.save(); cx.translate(wX, wY); cx.rotate(leapAngle);
+                // body
+                cx.beginPath(); cx.ellipse(0, 0, 110, 38, 0, 0, Math.PI * 2);
+                cx.fillStyle = 'rgba(18,30,55,0.95)'; cx.fill();
+                // belly
+                cx.beginPath(); cx.ellipse(20, 15, 55, 18, 0, 0, Math.PI * 2);
+                cx.fillStyle = 'rgba(100,140,180,0.25)'; cx.fill();
+                // flukes
+                cx.beginPath(); cx.moveTo(-100, 0);
+                cx.quadraticCurveTo(-135, -22, -150, -10); cx.quadraticCurveTo(-135, 5, -100, 0);
+                cx.moveTo(-100, 0);
+                cx.quadraticCurveTo(-130, 25, -148, 18); cx.quadraticCurveTo(-135, 30, -100, 0);
+                cx.fillStyle = 'rgba(15,25,48,0.9)'; cx.fill();
+                // flipper
+                cx.beginPath(); cx.moveTo(30, 20); cx.quadraticCurveTo(65, 55, 40, 68); cx.quadraticCurveTo(20, 60, 30, 20);
+                cx.fillStyle = 'rgba(14,22,44,0.85)'; cx.fill();
+                cx.restore();
+                // splash circle
+                if (phase < 0.12) {
+                    const splashR = phase * 600;
+                    cx.beginPath(); cx.ellipse(wX, waterY, splashR, splashR * 0.18, 0, 0, Math.PI * 2);
+                    cx.strokeStyle = `rgba(160,210,255,${(0.12 - phase) * 4})`; cx.lineWidth = 2; cx.stroke();
+                }
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           10 · GLACIER VEIN
+           Blue light compressed inside
+           ten thousand years of ice
+        ═══════════════════════════════════ */
+        (() => {
+            const veins = Array.from({ length: 18 }, (_, i) => ({
+                x: rnd(W * 0.08, W * 0.92), y: rnd(H * 0.1, H * 0.85),
+                len: rnd(80, 280), angle: rnd(-Math.PI * 0.4, Math.PI * 0.4), width: rnd(3, 18), hue: rnd(185, 220)
+            }));
+            R[10] = (gt, st, tot) => {
+                const cx = ctxs[10]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(0,5,14,0.22)'; cx.fillRect(0, 0, W, H);
+                // glacier body
+                const glacierG = cx.createLinearGradient(0, 0, W, H);
+                glacierG.addColorStop(0, 'rgba(160,200,230,0.85)'); glacierG.addColorStop(0.4, 'rgba(120,175,215,0.88)');
+                glacierG.addColorStop(0.7, 'rgba(80,140,195,0.82)'); glacierG.addColorStop(1, 'rgba(50,100,165,0.9)');
+                cx.fillStyle = glacierG; cx.fillRect(0, 0, W, H);
+                // compression pressure bubbles
+                for (let i = 0; i < 40; i++) {
+                    const bx = ((i * 337 + gt * 0.3) % W), by = (i * 197) % H;
+                    cx.beginPath(); cx.arc(bx, by, rnd(1, 5), 0, Math.PI * 2);
+                    cx.fillStyle = `rgba(200,230,255,${0.08 + Math.sin(gt * 0.02 + i) * 0.03})`; cx.fill();
+                }
+                // blue veins — ancient compressed air pockets
+                veins.forEach(v => {
+                    const vg = cx.createLinearGradient(v.x, v.y, v.x + Math.cos(v.angle) * v.len, v.y + Math.sin(v.angle) * v.len);
+                    vg.addColorStop(0, 'rgba(0,0,0,0)');
+                    vg.addColorStop(0.3, `hsla(${v.hue},80%,35%,${p * 0.7})`);
+                    vg.addColorStop(0.7, `hsla(${v.hue},85%,28%,${p * 0.6})`);
+                    vg.addColorStop(1, 'rgba(0,0,0,0)');
+                    cx.beginPath(); cx.moveTo(v.x, v.y);
+                    cx.lineTo(v.x + Math.cos(v.angle) * v.len, v.y + Math.sin(v.angle) * v.len);
+                    cx.strokeStyle = vg; cx.lineWidth = v.width; cx.stroke();
+                    // inner glow
+                    cx.strokeStyle = `hsla(${v.hue},90%,65%,${p * 0.15})`; cx.lineWidth = v.width * 0.3; cx.stroke();
+                });
+                // surface crack line
+                cx.beginPath(); cx.moveTo(0, H * 0.05);
+                for (let x = 0; x <= W; x += 14) cx.lineTo(x, H * 0.05 + Math.sin(x * 0.005 + gt * 0.003) * 22);
+                cx.strokeStyle = 'rgba(220,240,255,0.3)'; cx.lineWidth = 3; cx.stroke();
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           11 · DESERT NIGHT SKY
+           Clarity needs only darkness
+           and patience
+        ═══════════════════════════════════ */
+        (() => {
+            const milkyWay = Array.from({ length: 700 }, (_, i) => ({
+                x: W * 0.1 + (i / 700) * W * 0.8 + Math.sin(i * 0.1) * 30,
+                y: H * 0.12 + Math.sin(i * 0.02) * H * 0.28 + rnd(-20, 20),
+                sz: rnd(0.3, 1.6), ph: Math.random() * Math.PI * 2
+            }));
+            const shooters = [];let nextShooter = 80;
+            R[11] = (gt, st, tot) => {
+                const cx = ctxs[11]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(0,1,6,0.22)'; cx.fillRect(0, 0, W, H);
+                // sky gradient
+                const sky = cx.createLinearGradient(0, 0, 0, H * 0.72);
+                sky.addColorStop(0, 'rgba(0,2,12,0.5)'); sky.addColorStop(1, 'rgba(0,0,0,0)');
+                cx.fillStyle = sky; cx.fillRect(0, 0, W, H * 0.72);
+                // milky way band
+                milkyWay.forEach(s => {
+                    const tw = Math.sin(gt * 0.03 + s.ph) * 0.25 + 0.75;
+                    cx.beginPath(); cx.arc(s.x, s.y, s.sz * tw, 0, Math.PI * 2);
+                    cx.fillStyle = `rgba(255,255,255,${tw * (0.05 + Math.sin(s.ph * 3) * 0.06) * (0.5 + p * 0.5)})`; cx.fill();
+                });
+                // bright foreground stars
+                for (let i = 0; i < 60; i++) {
+                    const sx = ((i * 337) % W), sy = ((i * 197) % (H * 0.68));
+                    const tw = Math.sin(gt * 0.05 + i) * 0.3 + 0.7;
+                    cx.beginPath(); cx.arc(sx, sy, rnd(0.8, 2.5) * tw, 0, Math.PI * 2);
+                    cx.fillStyle = `rgba(255,255,255,${tw * 0.7})`; cx.fill();
+                }
+                // shooting star
+                if (gt >= nextShooter) {
+                    shooters.push({ x: rnd(W * 0.1, W * 0.8), y: rnd(H * 0.05, H * 0.3), vx: rnd(6, 12), vy: rnd(3, 6), al: 1 });
+                    nextShooter = gt + rnd(60, 200);
+                }
+                for (let i = shooters.length - 1; i >= 0; i--) {
+                    const s = shooters[i]; s.x += s.vx; s.y += s.vy; s.al *= 0.93;
+                    if (s.al < 0.02 || s.x > W) { shooters.splice(i, 1); continue; }
+                    cx.beginPath(); cx.moveTo(s.x, s.y); cx.lineTo(s.x - s.vx * 8, s.y - s.vy * 8);
+                    cx.strokeStyle = `rgba(255,255,255,${s.al})`; cx.lineWidth = 1.5; cx.stroke();
+                }
+                // desert dunes silhouette
+                cx.beginPath(); cx.moveTo(0, H);
+                for (let x = 0; x <= W; x += 10) cx.lineTo(x, H * 0.72 + Math.sin(x * 0.003) * 55 + Math.sin(x * 0.008 + 1.5) * 25);
+                cx.lineTo(W, H); cx.closePath(); cx.fillStyle = 'rgba(4,3,1,0.97)'; cx.fill();
+                // moon
+                const moonG = cx.createRadialGradient(W * 0.82, H * 0.14, 0, W * 0.82, H * 0.14, 30);
+                moonG.addColorStop(0, 'rgba(255,252,225,0.6)'); moonG.addColorStop(0.5, 'rgba(240,235,200,0.15)'); moonG.addColorStop(1, 'rgba(0,0,0,0)');
+                cx.fillStyle = moonG; cx.fillRect(W * 0.77, H * 0.06, 100, 100);
+                cx.beginPath(); cx.arc(W * 0.82, H * 0.14, 18, 0, Math.PI * 2);
+                cx.fillStyle = 'rgba(255,252,225,0.55)'; cx.fill();
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           12 · CELL DIVISION
+           Every beginning tears itself
+           in two to become more
+        ═══════════════════════════════════ */
+        (() => {
+            R[12] = (gt, st, tot) => {
+                const cx = ctxs[12]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(2,4,2,0.22)'; cx.fillRect(0, 0, W, H);
+                // petri dish background
+                const dish = cx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, H * 0.48);
+                dish.addColorStop(0, 'rgba(8,18,8,0.5)'); dish.addColorStop(0.7, 'rgba(4,10,4,0.3)'); dish.addColorStop(1, 'rgba(0,0,0,0)');
+                cx.fillStyle = dish; cx.fillRect(0, 0, W, H);
+                cx.beginPath(); cx.arc(W / 2, H / 2, H * 0.47, 0, Math.PI * 2);
+                cx.strokeStyle = 'rgba(60,100,60,0.15)'; cx.lineWidth = 3; cx.stroke();
+                // division stages
+                const stage = Math.floor(p * 4); // 0=1cell, 1=2cells, 2=4cells, 3=8cells
+                const cells = [];
+                const genCells = (cx2, cy, r, depth) => {
+                    if (depth === 0) { cells.push({ x: cx2, y: cy, r }); return; }
+                    const split = (p * 4 - (4 - depth - stage)) * 1.5;
+                    const off = r * Math.min(1, Math.max(0, split));
+                    genCells(cx2 - off, cy, r * 0.62, depth - 1);
+                    genCells(cx2 + off, cy, r * 0.62, depth - 1);
+                };
+                genCells(W / 2, H / 2, 160, Math.min(3, stage + 1));
+                cells.forEach(cell => {
+                    // cell membrane
+                    const cg = cx.createRadialGradient(cell.x, cell.y, 0, cell.x, cell.y, cell.r);
+                    cg.addColorStop(0, 'rgba(40,100,40,0.25)'); cg.addColorStop(0.7, 'rgba(20,70,25,0.15)'); cg.addColorStop(1, 'rgba(0,0,0,0)');
+                    cx.fillStyle = cg; cx.fillRect(cell.x - cell.r, cell.y - cell.r, cell.r * 2, cell.r * 2);
+                    cx.beginPath(); cx.arc(cell.x, cell.y, cell.r, 0, Math.PI * 2);
+                    cx.strokeStyle = 'rgba(80,180,80,0.35)'; cx.lineWidth = 2; cx.stroke();
+                    // nucleus
+                    cx.beginPath(); cx.arc(cell.x, cell.y, cell.r * 0.28, 0, Math.PI * 2);
+                    cx.fillStyle = 'rgba(60,160,60,0.5)'; cx.fill();
+                    cx.strokeStyle = 'rgba(100,220,100,0.4)'; cx.lineWidth = 1.5; cx.stroke();
+                });
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           13 · BRIDGE SHADOW
+           The shadow of what connects
+           falls further than the bridge itself
+        ═══════════════════════════════════ */
+        (() => {
+            R[13] = (gt, st, tot) => {
+                const cx = ctxs[13]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(4,4,6,0.2)'; cx.fillRect(0, 0, W, H);
+                // water below
+                const waterY = H * 0.62;
+                cx.beginPath(); cx.moveTo(0, H);
+                for (let x = 0; x <= W; x += 8) cx.lineTo(x, waterY + Math.sin(x * 0.008 + gt * 0.016) * 10);
+                cx.lineTo(W, H); cx.closePath();
+                const wg = cx.createLinearGradient(0, waterY, 0, H);
+                wg.addColorStop(0, 'rgba(12,35,65,0.9)'); wg.addColorStop(1, 'rgba(4,12,28,0.97)');
+                cx.fillStyle = wg; cx.fill();
+                // bridge cables
+                const bY = H * 0.38;
+                for (let t = 0; t <= 1; t += 0.06) {
+                    const bx = W * 0.12 + t * W * 0.76;
+                    const by = bY + Math.sin(t * Math.PI) * H * 0.06;
+                    cx.beginPath(); cx.moveTo(bx, H * 0.22); cx.lineTo(bx, by + 18);
+                    cx.strokeStyle = 'rgba(60,55,50,0.7)'; cx.lineWidth = 1.5; cx.stroke();
+                }
+                // main cable
+                cx.beginPath(); cx.moveTo(W * 0.1, H * 0.22);
+                cx.quadraticCurveTo(W * 0.5, H * 0.5, W * 0.9, H * 0.22);
+                cx.strokeStyle = 'rgba(70,65,55,0.85)'; cx.lineWidth = 5; cx.stroke();
+                cx.beginPath(); cx.moveTo(W * 0.1, H * 0.22);
+                cx.quadraticCurveTo(W * 0.5, H * 0.44, W * 0.9, H * 0.22);
+                cx.strokeStyle = 'rgba(70,65,55,0.85)'; cx.lineWidth = 5; cx.stroke();
+                // bridge deck
+                cx.beginPath(); cx.rect(W * 0.1, bY, W * 0.8, 16);
+                cx.fillStyle = 'rgba(55,50,42,0.9)'; cx.fill();
+                // towers
+                [W * 0.22, W * 0.78].forEach(tx => {
+                    cx.beginPath(); cx.rect(tx - 12, H * 0.12, 24, bY - H * 0.12);
+                    cx.fillStyle = 'rgba(52,48,40,0.92)'; cx.fill();
+                });
+                // shadow on water — lengthening with p
+                const shadowLen = p * H * 0.38;
+                const shadowG = cx.createLinearGradient(0, waterY, 0, waterY + shadowLen);
+                shadowG.addColorStop(0, `rgba(0,0,0,${p * 0.5})`); shadowG.addColorStop(1, 'rgba(0,0,0,0)');
+                cx.fillStyle = shadowG; cx.fillRect(W * 0.1, waterY, W * 0.8, shadowLen);
+                // reflections
+                cx.beginPath(); cx.moveTo(W * 0.1, waterY);
+                cx.quadraticCurveTo(W * 0.5, waterY + H * 0.12 * p, W * 0.9, waterY);
+                cx.strokeStyle = `rgba(50,70,100,${p * 0.3})`; cx.lineWidth = 3; cx.stroke();
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           14 · SPIDERWEB DEW
+           Each drop holds the whole morning
+        ═══════════════════════════════════ */
+        (() => {
+            const webSpokes = 18;
+            const webRings = 9;
+            const drops = Array.from({ length: 60 }, (_, i) => ({
+                spoke: i % webSpokes, ring: 1 + Math.floor(i / webSpokes) % webRings,
+                sz: rnd(3, 10), ph: Math.random() * Math.PI * 2
+            }));
+            R[14] = (gt, st, tot) => {
+                const cx = ctxs[14]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(3,4,6,0.22)'; cx.fillRect(0, 0, W, H);
+                // morning mist bg
+                const mist = cx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W * 0.5);
+                mist.addColorStop(0, `rgba(180,190,210,${p * 0.08})`); mist.addColorStop(1, 'rgba(0,0,0,0)');
+                cx.fillStyle = mist; cx.fillRect(0, 0, W, H);
+                const wx = W / 2, wy = H * 0.5, maxR = H * 0.42;
+                // anchor threads
+                for (let s = 0; s < webSpokes; s++) {
+                    const a = (s / webSpokes) * Math.PI * 2;
+                    cx.beginPath(); cx.moveTo(wx, wy);
+                    cx.lineTo(wx + Math.cos(a) * maxR, wy + Math.sin(a) * maxR * 0.75);
+                    cx.strokeStyle = `rgba(200,210,230,${p * 0.2})`; cx.lineWidth = 0.6; cx.stroke();
+                }
+                // spiral rings
+                for (let r = 1; r <= webRings; r++) {
+                    const ringR = (r / webRings) * maxR;
+                    cx.beginPath();
+                    for (let s = 0; s <= webSpokes; s++) {
+                        const a = (s / webSpokes) * Math.PI * 2;
+                        const px = wx + Math.cos(a) * ringR, py = wy + Math.sin(a) * ringR * 0.75;
+                        if (s === 0) cx.moveTo(px, py); else cx.lineTo(px, py);
+                    }
+                    cx.closePath();
+                    cx.strokeStyle = `rgba(200,215,235,${p * 0.18})`; cx.lineWidth = 0.7; cx.stroke();
+                }
+                // dew drops appearing
+                drops.forEach(d => {
+                    const a = (d.spoke / webSpokes) * Math.PI * 2;
+                    const ringR = (d.ring / webRings) * maxR;
+                    const dx = wx + Math.cos(a) * ringR, dy = wy + Math.sin(a) * ringR * 0.75;
+                    const dropVis = Math.min(1, p * 3 - d.ring * 0.15);
+                    if (dropVis < 0.01) return;
+                    const tw = Math.sin(gt * 0.02 + d.ph) * 0.15 + 0.85;
+                    // drop highlight
+                    const dg = cx.createRadialGradient(dx - d.sz * 0.3, dy - d.sz * 0.3, 0, dx, dy, d.sz * tw);
+                    dg.addColorStop(0, `rgba(255,255,255,${dropVis * 0.8})`);
+                    dg.addColorStop(0.4, `rgba(180,205,235,${dropVis * 0.5})`);
+                    dg.addColorStop(1, `rgba(120,160,200,${dropVis * 0.2})`);
+                    cx.beginPath(); cx.arc(dx, dy, d.sz * tw * dropVis, 0, Math.PI * 2);
+                    cx.fillStyle = dg; cx.fill();
+                });
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           15 · MAGMA CHAMBER
+           Ten million years of pressure
+           looking for a way out
+        ═══════════════════════════════════ */
+        (() => {
+            const lavaBlobs = Array.from({ length: 30 }, () => ({ x: rnd(W * 0.1, W * 0.9), y: rnd(H * 0.55, H * 0.95), r: rnd(30, 100), ph: Math.random() * Math.PI * 2, spd: rnd(0.015, 0.04) }));
+            R[15] = (gt, st, tot) => {
+                const cx = ctxs[15]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(8,2,0,0.25)'; cx.fillRect(0, 0, W, H);
+                // rock ceiling
+                cx.beginPath(); cx.moveTo(0, 0);
+                for (let x = 0; x <= W; x += 14) cx.lineTo(x, H * 0.28 + Math.sin(x * 0.005) * 40 + Math.sin(x * 0.013 + 1) * 20);
+                cx.lineTo(W, 0); cx.closePath(); cx.fillStyle = 'rgba(18,12,8,0.97)'; cx.fill();
+                // magma glow — brightening with pressure
+                const mg = cx.createRadialGradient(W / 2, H * 0.75, 0, W / 2, H * 0.8, W * 0.52);
+                mg.addColorStop(0, `rgba(255,${Math.floor(L(80, 160, p))},0,${0.35 + p * 0.3})`);
+                mg.addColorStop(0.4, `rgba(220,${Math.floor(L(40, 80, p))},0,${0.15 + p * 0.12})`);
+                mg.addColorStop(1, 'rgba(0,0,0,0)');
+                cx.fillStyle = mg; cx.fillRect(0, H * 0.3, W, H * 0.7);
+                // lava blobs convecting
+                lavaBlobs.forEach(b => {
+                    b.y += Math.sin(gt * b.spd + b.ph) * 1.5 * p;
+                    const pulse = Math.sin(gt * b.spd * 2 + b.ph) * 0.2 + 0.8;
+                    const bg = cx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r * pulse);
+                    bg.addColorStop(0, `rgba(255,${Math.floor(L(100, 200, p))},10,${0.6 * pulse})`);
+                    bg.addColorStop(0.5, `rgba(220,${Math.floor(L(40, 90, p))},0,${0.3 * pulse})`);
+                    bg.addColorStop(1, 'rgba(0,0,0,0)');
+                    cx.fillStyle = bg; cx.fillRect(b.x - b.r, b.y - b.r, b.r * 2, b.r * 2);
+                });
+                // pressure cracks in ceiling
+                if (p > 0.5) {
+                    for (let i = 0; i < 5; i++) {
+                        const cx2 = W * (0.2 + i * 0.15), cy = H * 0.28 + Math.sin(cx2 * 0.005) * 40;
+                        cx.beginPath(); cx.moveTo(cx2, cy); cx.lineTo(cx2 + rnd(-20, 20), cy + rnd(30, 80) * (p - 0.5) * 2);
+                        cx.strokeStyle = `rgba(255,${Math.floor(80 + p * 80)},0,${(p - 0.5) * 0.6})`; cx.lineWidth = 2; cx.stroke();
+                    }
+                }
+                // rock floor texture
+                cx.beginPath(); cx.moveTo(0, H);
+                for (let x = 0; x <= W; x += 12) cx.lineTo(x, H * 0.88 + Math.sin(x * 0.006) * 18);
+                cx.lineTo(W, H); cx.closePath(); cx.fillStyle = 'rgba(12,7,3,0.92)'; cx.fill();
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           16 · DANDELION CLOCK
+           Each seed a small act of trust
+           in the wind's direction
+        ═══════════════════════════════════ */
+        (() => {
+            const seeds2 = Array.from({ length: 120 }, (_, i) => ({
+                a: (i / 120) * Math.PI * 2, r: 8 + (i % 12) * 7,
+                vx: (Math.random() - 0.5) * 3, vy: -rnd(0.5, 3),
+                born: (i / 120), gone: false, goneT: 0
+            }));
+            R[16] = (gt, st, tot) => {
+                const cx = ctxs[16]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(3,4,2,0.22)'; cx.fillRect(0, 0, W, H);
+                // soft meadow bg
+                const meadow = cx.createLinearGradient(0, 0, 0, H);
+                meadow.addColorStop(0, 'rgba(5,10,18,0.4)'); meadow.addColorStop(0.6, 'rgba(6,12,4,0.2)'); meadow.addColorStop(1, 'rgba(2,6,1,0.1)');
+                cx.fillStyle = meadow; cx.fillRect(0, 0, W, H);
+                const dx = W / 2, dy = H * 0.55;
+                // stem
+                cx.beginPath(); cx.moveTo(dx, dy); cx.lineTo(dx + Math.sin(gt * 0.006) * 8, H * 0.88);
+                cx.strokeStyle = 'rgba(80,110,40,0.7)'; cx.lineWidth = 5; cx.lineCap = 'round'; cx.stroke();
+                // seeds still attached
+                seeds2.forEach(s => {
+                    const detachPct = Math.max(0, (p - s.born * 0.8) * 3);
+                    if (detachPct >= 1) {
+                        // flying free
+                        s.gone = true; s.goneT++;
+                        const fx = dx + Math.cos(s.a) * 80 + s.vx * s.goneT + Math.sin(gt * 0.02 + s.a) * s.goneT * 0.5;
+                        const fy = dy + Math.sin(s.a) * 40 + s.vy * s.goneT;
+                        if (fx < -60 || fx > W + 60 || fy < -60) return;
+                        cx.beginPath(); cx.arc(fx, fy, 3, 0, Math.PI * 2);
+                        cx.fillStyle = `rgba(240,240,220,${Math.max(0, 0.7 - s.goneT * 0.008)})`; cx.fill();
+                        cx.beginPath(); cx.moveTo(fx, fy); cx.lineTo(fx, fy - 14);
+                        cx.strokeStyle = `rgba(200,200,180,${Math.max(0, 0.35 - s.goneT * 0.004)})`; cx.lineWidth = 0.8; cx.stroke();
+                    } else {
+                        const sx = dx + Math.cos(s.a) * s.r, sy = dy + Math.sin(s.a) * s.r * 0.7;
+                        cx.beginPath(); cx.moveTo(dx, dy); cx.lineTo(sx, sy);
+                        cx.strokeStyle = `rgba(200,195,160,${0.55 - detachPct * 0.4})`; cx.lineWidth = 0.8; cx.stroke();
+                        cx.beginPath(); cx.arc(sx, sy, 3.5, 0, Math.PI * 2);
+                        cx.fillStyle = `rgba(240,240,220,${0.9 - detachPct * 0.6})`; cx.fill();
+                    }
+                });
+                // center sphere
+                const remain = Math.max(0, 1 - p * 1.4);
+                if (remain > 0.1) {
+                    cx.beginPath(); cx.arc(dx, dy, 12 * remain, 0, Math.PI * 2);
+                    cx.fillStyle = `rgba(220,200,100,${remain * 0.85})`; cx.fill();
+                }
+                // ground
+                cx.beginPath(); cx.moveTo(0, H);
+                for (let x = 0; x <= W; x += 10) cx.lineTo(x, H * 0.88 + Math.sin(x * 0.006) * 12);
+                cx.lineTo(W, H); cx.closePath(); cx.fillStyle = 'rgba(5,10,3,0.97)'; cx.fill();
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           17 · FROZEN WATERFALL
+           Motion suspended mid-surrender —
+           the gesture preserved forever
+        ═══════════════════════════════════ */
+        (() => {
+            const iceStreaks = Array.from({ length: 40 }, (_, i) => ({
+                x: W * 0.18 + i * (W * 0.64 / 39), wobble: rnd(-12, 12), len: rnd(H * 0.4, H * 0.72),
+                w: rnd(4, 22), hue: rnd(185, 215)
+            }));
+            const iciclesF = Array.from({ length: 25 }, (_, i) => ({ x: W * 0.2 + i * (W * 0.6 / 24), len: rnd(40, 180), w: rnd(5, 18) }));
+            R[17] = (gt, st, tot) => {
+                const cx = ctxs[17]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(0,4,10,0.22)'; cx.fillRect(0, 0, W, H);
+                // sky cold
+                const sky = cx.createLinearGradient(0, 0, 0, H * 0.3);
+                sky.addColorStop(0, 'rgba(5,15,35,0.5)'); sky.addColorStop(1, 'rgba(0,0,0,0)');
+                cx.fillStyle = sky; cx.fillRect(0, 0, W, H * 0.3);
+                // frozen fall — ice columns
+                iceStreaks.forEach(s => {
+                    cx.beginPath(); cx.moveTo(s.x, H * 0.12);
+                    cx.bezierCurveTo(s.x + s.wobble * 0.3, H * 0.35, s.x + s.wobble * 0.7, H * 0.55, s.x + s.wobble, H * 0.12 + s.len);
+                    const ig = cx.createLinearGradient(s.x, H * 0.12, s.x + s.wobble, H * 0.12 + s.len);
+                    ig.addColorStop(0, `hsla(${s.hue},65%,80%,${0.65 + p * 0.1})`);
+                    ig.addColorStop(0.5, `hsla(${s.hue},75%,65%,${0.55})`);
+                    ig.addColorStop(1, `hsla(${s.hue},70%,55%,${0.4})`);
+                    cx.strokeStyle = ig; cx.lineWidth = s.w; cx.lineCap = 'round'; cx.stroke();
+                    // inner blue vein
+                    cx.strokeStyle = `hsla(${s.hue + 10},90%,40%,${0.2})`; cx.lineWidth = s.w * 0.25; cx.stroke();
+                });
+                // icicles at base
+                iciclesF.forEach(ic => {
+                    const icy = H * 0.12 + iceStreaks[0].len - 20;
+                    cx.beginPath(); cx.moveTo(ic.x - ic.w / 2, icy); cx.lineTo(ic.x, icy + ic.len); cx.lineTo(ic.x + ic.w / 2, icy); cx.closePath();
+                    cx.fillStyle = `rgba(190,225,248,${0.6 + p * 0.15})`; cx.fill();
+                    // icicle glint
+                    cx.beginPath(); cx.moveTo(ic.x - ic.w * 0.2, icy + 5); cx.lineTo(ic.x - ic.w * 0.15, icy + ic.len * 0.6);
+                    cx.strokeStyle = 'rgba(255,255,255,0.3)'; cx.lineWidth = 1.5; cx.stroke();
+                });
+                // cliff face
+                cx.beginPath(); cx.rect(0, 0, W * 0.16, H); cx.fillStyle = 'rgba(20,16,12,0.95)'; cx.fill();
+                cx.beginPath(); cx.rect(W * 0.84, 0, W * 0.16, H); cx.fillStyle = 'rgba(20,16,12,0.95)'; cx.fill();
+                // rock ledge top
+                cx.beginPath(); cx.moveTo(0, H * 0.12);
+                for (let x = 0; x <= W; x += 12) cx.lineTo(x, H * 0.1 + Math.sin(x * 0.006) * 18);
+                cx.lineTo(W, 0); cx.lineTo(0, 0); cx.closePath(); cx.fillStyle = 'rgba(18,14,10,0.97)'; cx.fill();
+                // frozen pool below — cracked
+                cx.beginPath(); cx.ellipse(W / 2, H * 0.88, W * 0.28, H * 0.05, 0, 0, Math.PI * 2);
+                cx.fillStyle = `rgba(150,200,230,${0.35 + p * 0.1})`; cx.fill();
+                cx.strokeStyle = 'rgba(200,230,250,0.3)'; cx.lineWidth = 1; cx.stroke();
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           18 · CORAL BLEACHING
+           The beauty that was —
+           slowly becoming white silence
+        ═══════════════════════════════════ */
+        (() => {
+            const corals = Array.from({ length: 28 }, (_, i) => ({
+                x: W * (0.05 + i * 0.034), y: H * 0.72 + rnd(-15, 15),
+                h: rnd(60, 200), branches: Math.floor(rnd(3, 8)),
+                hue: rnd(0, 360), w: rnd(8, 22)
+            }));
+            R[18] = (gt, st, tot) => {
+                const cx = ctxs[18]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(0,3,8,0.22)'; cx.fillRect(0, 0, W, H);
+                // warm tropical water — cooling as bleaching happens
+                const wg = cx.createLinearGradient(0, 0, 0, H);
+                wg.addColorStop(0, `rgba(${Math.floor(L(0,15,p))},${Math.floor(L(35,28,p))},${Math.floor(L(80,50,p))},0.45)`);
+                wg.addColorStop(1, 'rgba(0,5,15,0.2)');
+                cx.fillStyle = wg; cx.fillRect(0, 0, W, H);
+                // light shafts
+                for (let i = 0; i < 10; i++) {
+                    const lx = W * (0.05 + i * 0.1) + Math.sin(gt * 0.008 + i) * 20;
+                    const lg = cx.createLinearGradient(lx, 0, lx + 20, H * 0.65);
+                    lg.addColorStop(0, `rgba(${Math.floor(L(80,60,p))},${Math.floor(L(180,160,p))},${Math.floor(L(220,200,p))},${0.04 - p * 0.025})`);
+                    lg.addColorStop(1, 'rgba(0,0,0,0)'); cx.fillStyle = lg;
+                    cx.beginPath(); cx.moveTo(lx, 0); cx.lineTo(lx + 12, 0); cx.lineTo(lx + 40, H * 0.65); cx.lineTo(lx - 20, H * 0.65); cx.closePath(); cx.fill();
+                }
+                // coral formations bleaching
+                corals.forEach(c => {
+                    const bleach = Math.min(1, p * 1.5);
+                    const coralHue = c.hue;
+                    const sat = Math.floor(L(75, 0, bleach));
+                    const lit = Math.floor(L(55, 88, bleach));
+                    for (let b = 0; b < c.branches; b++) {
+                        const ba = -Math.PI * 0.5 + (b / c.branches - 0.5) * Math.PI * 0.7;
+                        const blen = c.h * (0.6 + b * 0.05);
+                        cx.beginPath(); cx.moveTo(c.x, c.y);
+                        cx.lineTo(c.x + Math.cos(ba) * blen, c.y + Math.sin(ba) * blen);
+                        cx.strokeStyle = `hsla(${coralHue},${sat}%,${lit}%,0.85)`;
+                        cx.lineWidth = c.w * (1 - b * 0.1); cx.lineCap = 'round'; cx.stroke();
+                        // branch tips
+                        cx.beginPath(); cx.arc(c.x + Math.cos(ba) * blen, c.y + Math.sin(ba) * blen, c.w * 0.8, 0, Math.PI * 2);
+                        cx.fillStyle = `hsla(${coralHue},${sat}%,${lit + 10}%,0.75)`; cx.fill();
+                    }
+                });
+                // sandy floor
+                cx.beginPath(); cx.moveTo(0, H);
+                for (let x = 0; x <= W; x += 12) cx.lineTo(x, H * 0.78 + Math.sin(x * 0.006) * 15);
+                cx.lineTo(W, H); cx.closePath();
+                cx.fillStyle = `rgba(${Math.floor(L(60,80,p))},${Math.floor(L(55,75,p))},${Math.floor(L(35,55,p))},0.9)`; cx.fill();
+            };
+        })();
+
+        /* ═══════════════════════════════════
+           19 · DISTANT LIGHTHOUSE
+           Signal sent without expectation —
+           the beam completes itself
+        ═══════════════════════════════════ */
+        (() => {
+            const waves = Array.from({ length: 8 }, (_, i) => ({ ph: i * 0.4, amp: 14 + i * 8, spd: 0.012 + i * 0.004 }));
+            R[19] = (gt, st, tot) => {
+                const cx = ctxs[19]; const p = ei(st / tot);
+                cx.fillStyle = 'rgba(0,2,8,0.22)'; cx.fillRect(0, 0, W, H);
+                // night sea sky
+                const sky = cx.createLinearGradient(0, 0, 0, H * 0.55);
+                sky.addColorStop(0, 'rgba(0,3,14,0.55)'); sky.addColorStop(1, 'rgba(0,0,0,0)');
+                cx.fillStyle = sky; cx.fillRect(0, 0, W, H * 0.55);
+                // stars
+                for (let i = 0; i < 80; i++) {
+                    const sx = ((i * 337) % W), sy = ((i * 197) % (H * 0.5));
+                    cx.beginPath(); cx.arc(sx, sy, rnd(0.3, 1.2), 0, Math.PI * 2);
+                    cx.fillStyle = `rgba(255,255,255,${0.3 + Math.sin(gt * 0.04 + i) * 0.12})`; cx.fill();
+                }
+                // lighthouse position — far right, small
+                const lhx = W * 0.82, lhy = H * 0.46;
+                // rotating beam
+                const beamAngle = gt * 0.03;
+                const beam = cx.createConicalGradient ? null : null; // fallback: manual fan
+                for (let i = 0; i < 3; i++) {
+                    const ba = beamAngle + i * Math.PI * 0.04;
+                    const bLen = W * 0.9;
+                    cx.beginPath(); cx.moveTo(lhx, lhy);
+                    cx.lineTo(lhx + Math.cos(ba - 0.04) * bLen, lhy + Math.sin(ba - 0.04) * bLen);
+                    cx.lineTo(lhx + Math.cos(ba + 0.04) * bLen, lhy + Math.sin(ba + 0.04) * bLen);
+                    cx.closePath();
+                    const fanG = cx.createRadialGradient(lhx, lhy, 0, lhx, lhy, bLen);
+                    fanG.addColorStop(0, `rgba(255,240,180,${0.35 - i * 0.1})`);
+                    fanG.addColorStop(0.15, `rgba(255,220,120,${0.12 - i * 0.03})`);
+                    fanG.addColorStop(1, 'rgba(0,0,0,0)');
+                    cx.fillStyle = fanG; cx.fill();
+                }
+                // lighthouse structure
+                cx.beginPath(); cx.rect(lhx - 6, lhy, 12, 50);
+                cx.fillStyle = 'rgba(200,190,165,0.88)'; cx.fill();
+                // horizontal stripes
+                for (let s = 0; s < 3; s++) { cx.beginPath(); cx.rect(lhx - 6, lhy + s * 16, 12, 6); cx.fillStyle = 'rgba(160,30,30,0.75)'; cx.fill(); }
+                cx.beginPath(); cx.rect(lhx - 9, lhy - 5, 18, 8); cx.fillStyle = 'rgba(180,170,140,0.9)'; cx.fill();
+                cx.beginPath(); cx.arc(lhx, lhy - 2, 5, 0, Math.PI * 2);
+                cx.fillStyle = `rgba(255,240,160,${0.7 + Math.sin(gt * 0.05) * 0.2})`; cx.fill();
+                // rocky headland
+                cx.beginPath(); cx.moveTo(W * 0.65, H); cx.lineTo(W * 0.65, H * 0.52);
+                for (let x = W * 0.65; x <= W; x += 10) cx.lineTo(x, H * 0.52 + Math.sin(x * 0.01) * 20);
+                cx.lineTo(W, H); cx.closePath(); cx.fillStyle = 'rgba(18,14,10,0.97)'; cx.fill();
+                // ocean waves
+                const waterY = H * 0.54;
+                waves.forEach((wv, i) => {
+                    cx.beginPath(); cx.moveTo(0, H);
+                    for (let x = 0; x <= W * 0.65; x += 8) cx.lineTo(x, waterY + Math.sin(x * 0.007 + gt * wv.spd + wv.ph) * wv.amp + i * 6);
+                    cx.lineTo(W * 0.65, H); cx.closePath();
+                    cx.fillStyle = `rgba(${8 + i * 2},${25 + i * 5},${55 + i * 8},${0.7 - i * 0.06})`; cx.fill();
+                });
+                // moonlit path on water
+                const moonPath = cx.createLinearGradient(W * 0.1, waterY, W * 0.45, H);
+                moonPath.addColorStop(0, `rgba(255,245,200,${p * 0.06})`); moonPath.addColorStop(1, 'rgba(0,0,0,0)');
+                cx.fillStyle = moonPath; cx.fillRect(W * 0.05, waterY, W * 0.45, H - waterY);
+            };
+        })();
+
+        goTo(0);
+        document.getElementById('scene-name').textContent = SCENES[0].name;
+        masterLoop();
+    </script>
+</body>
+
+</html>

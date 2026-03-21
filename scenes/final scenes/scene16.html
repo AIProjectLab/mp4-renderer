@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Stoicism Visual Meditations — 30 Scenes</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:'Georgia',serif;}
+
+/* ── CANVAS STAGE ── */
+#stage{
+  position:fixed;top:0;left:0;right:0;
+  bottom:110px;
+  display:flex;align-items:center;justify-content:center;
+  background:#000;
+}
+#wrapper{position:relative;transform-origin:center center;}
+#wrapper canvas{position:absolute;top:0;left:0;width:1920px;height:1080px;display:none;}
+#wrapper canvas.active{display:block;}
+
+/* ── BOTTOM PANEL ── */
+#panel{
+  position:fixed;bottom:0;left:0;right:0;height:110px;
+  background:rgba(4,4,6,0.97);
+  border-top:1px solid rgba(255,255,255,0.07);
+  display:flex;flex-direction:column;gap:0;
+  padding:0 20px;
+  backdrop-filter:blur(20px);
+}
+
+/* progress bar */
+#progress-wrap{
+  height:3px;width:100%;background:rgba(255,255,255,0.06);
+  position:relative;cursor:pointer;flex-shrink:0;
+}
+#progress-fill{
+  height:100%;background:linear-gradient(90deg,#ffc850,#ff8c40);
+  width:0%;transition:width 0.3s linear;
+  position:relative;
+}
+#progress-fill::after{
+  content:'';position:absolute;right:-4px;top:-3px;
+  width:9px;height:9px;border-radius:50%;
+  background:#ffc850;box-shadow:0 0 8px #ffc850;
+}
+#progress-wrap:hover #progress-fill::after{transform:scale(1.4);}
+
+/* main controls row */
+#controls{
+  display:flex;align-items:center;gap:14px;
+  padding:8px 0 4px;flex-shrink:0;
+}
+
+/* play/pause */
+#playbtn{
+  width:42px;height:42px;border-radius:50%;
+  border:1px solid rgba(255,200,80,0.4);
+  background:rgba(255,200,80,0.08);
+  color:#ffc850;font-size:16px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .2s;flex-shrink:0;
+}
+#playbtn:hover{background:rgba(255,200,80,0.18);border-color:#ffc850;}
+
+/* prev/next */
+.navbtn{
+  width:34px;height:34px;border-radius:50%;
+  border:1px solid rgba(255,255,255,0.12);
+  background:transparent;color:rgba(255,255,255,0.5);
+  font-size:13px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .2s;flex-shrink:0;
+}
+.navbtn:hover{border-color:rgba(255,255,255,0.35);color:#fff;}
+
+/* scene info */
+#scene-info{
+  display:flex;flex-direction:column;gap:2px;margin-right:auto;
+}
+#scene-name{font-size:13px;color:rgba(255,255,255,0.8);letter-spacing:.04em;}
+#scene-counter{font-size:11px;color:rgba(255,255,255,0.28);letter-spacing:.08em;}
+
+/* timer */
+#timer-wrap{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+#timer-display{font-size:12px;color:rgba(255,255,255,0.35);letter-spacing:.08em;font-variant-numeric:tabular-nums;}
+#speed-btn{
+  padding:4px 10px;border-radius:3px;
+  border:1px solid rgba(255,255,255,0.1);
+  background:transparent;color:rgba(255,255,255,0.35);
+  font-size:11px;cursor:pointer;transition:all .2s;
+}
+#speed-btn:hover{border-color:rgba(255,255,255,0.3);color:rgba(255,255,255,0.7);}
+
+/* scene strip */
+#strip-wrap{overflow-x:auto;flex:1;padding:6px 0 8px;scrollbar-width:none;}
+#strip-wrap::-webkit-scrollbar{display:none;}
+#strip{display:flex;gap:6px;align-items:center;min-width:max-content;}
+.thumb{
+  flex-shrink:0;width:72px;height:40px;border-radius:4px;
+  border:1px solid rgba(255,255,255,0.08);
+  background:rgba(255,255,255,0.04);
+  cursor:pointer;transition:all .15s;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;position:relative;overflow:hidden;
+}
+.thumb:hover{border-color:rgba(255,255,255,0.25);background:rgba(255,255,255,0.08);}
+.thumb.active{border-color:#ffc850;background:rgba(255,200,80,0.1);}
+.thumb .tnum{font-size:9px;color:rgba(255,255,255,0.25);letter-spacing:.06em;}
+.thumb .tname{font-size:9px;color:rgba(255,255,255,0.55);text-align:center;line-height:1.2;padding:0 4px;}
+.thumb.active .tname{color:#ffc850;}
+.thumb .tbar{
+  position:absolute;bottom:0;left:0;height:2px;
+  background:#ffc850;width:0%;transition:width 0.1s linear;
+}
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <div id="wrapper"></div>
+</div>
+
+<div id="panel">
+  <div id="progress-wrap" onclick="seekByClick(event)">
+    <div id="progress-fill"></div>
+  </div>
+  <div id="controls">
+    <button class="navbtn" onclick="prevScene()">◄</button>
+    <button id="playbtn" onclick="togglePlay()">►</button>
+    <button class="navbtn" onclick="nextScene()">►►</button>
+    <div id="scene-info">
+      <div id="scene-name">Loading…</div>
+      <div id="scene-counter">Scene 1 of 30</div>
+    </div>
+    <div id="timer-wrap">
+      <div id="timer-display">0:00 / 0:00</div>
+      <button id="speed-btn" onclick="cycleSpeed()">1×</button>
+    </div>
+  </div>
+  <div id="strip-wrap">
+    <div id="strip"></div>
+  </div>
+</div>
+
+<script>
+// ────────────────────────────────────────────────
+//  CONFIG — 30 Stoic-themed scenes
+// ────────────────────────────────────────────────
+const SCENES = [
+  {name:'Inner Citadel',        dur:32},
+  {name:'Dichotomy of Control', dur:30},
+  {name:'View From Above',      dur:38},
+  {name:'Impermanence',         dur:34},
+  {name:'Steady Flame',         dur:30},
+  {name:'Amor Fati',            dur:32},
+  {name:'Habit Formation',      dur:36},
+  {name:'Flow Around Obstacle', dur:30},
+  {name:'Premeditatio Malorum', dur:33},
+  {name:'Memento Mori',         dur:35},
+  {name:'Virtue Compass',       dur:30},
+  {name:'Anchor in Storm',      dur:34},
+  {name:'Mirror of the Soul',   dur:32},
+  {name:'Eternal Now',          dur:30},
+  {name:'Logos Radiance',       dur:36},
+  {name:'Void Acceptance',      dur:30},
+  {name:'Cosmic Perspective',   dur:40},
+  {name:'Ephemeral Trace',      dur:32},
+  {name:'Inner Equilibrium',    dur:30},
+  {name:'Fate Embraced',        dur:34},
+  {name:'Discipline Rising',    dur:33},
+  {name:'Tranquil Current',     dur:30},
+  {name:'Shadow Rehearsal',     dur:35},
+  {name:'Horizon of End',       dur:38},
+  {name:'Arete Beacon',         dur:30},
+  {name:'Deep Rootedness',      dur:32},
+  {name:'Self Reconciliation',  dur:34},
+  {name:'Present Radiance',     dur:30},
+  {name:'Rational Core',        dur:36},
+  {name:'Final Equanimity',     dur:45}
+];
+
+const W = 1920, H = 1080;
+const SPEEDS = [1, 1.5, 2, 0.5];
+let speedIdx = 0;
+let currentScene = 0;
+let isPlaying = false;
+let sceneTimer = 0;
+let raf = null;
+const ctxs = [];
+
+// ── Create canvases ──
+const wrapper = document.getElementById('wrapper');
+wrapper.style.width  = W + 'px';
+wrapper.style.height = H + 'px';
+for(let i = 0; i < SCENES.length; i++){
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  c.id = 'cv' + i;
+  wrapper.appendChild(c);
+  ctxs.push(c.getContext('2d'));
+}
+
+// ── Responsive scaling ──
+function scaleStage(){
+  const stage = document.getElementById('stage');
+  const sw = stage.clientWidth, sh = stage.clientHeight;
+  const s = Math.min(sw/W, sh/H);
+  wrapper.style.transform = `scale(${s})`;
+  wrapper.style.marginLeft = ((sw - W*s)/2) + 'px';
+  wrapper.style.marginTop  = ((sh - H*s)/2) + 'px';
+}
+window.addEventListener('resize', scaleStage); scaleStage();
+
+// ── Build thumbnail strip ──
+const strip = document.getElementById('strip');
+SCENES.forEach((sc,i) => {
+  const d = document.createElement('div');
+  d.className = 'thumb' + (i===0 ? ' active' : '');
+  d.id = 'th' + i;
+  d.innerHTML = `<div class="tnum">${String(i+1).padStart(2,'0')}</div><div class="tname">${sc.name}</div><div class="tbar" id="tb${i}"></div>`;
+  d.onclick = () => goTo(i);
+  strip.appendChild(d);
+});
+
+// ── Playback logic ──
+let globalFrame = 0;
+const FPS = 60;
+
+function masterLoop(){
+  raf = requestAnimationFrame(masterLoop);
+  globalFrame++;
+
+  const sc = SCENES[currentScene];
+  const totalFrames = sc.dur * FPS / SPEEDS[speedIdx];
+
+  if(isPlaying){
+    sceneTimer++;
+    if(sceneTimer >= totalFrames){
+      if(currentScene < SCENES.length-1) goTo(currentScene + 1);
+      else { isPlaying = false; updatePlayBtn(); }
+    }
+  }
+
+  RENDERERS[currentScene](globalFrame, sceneTimer, totalFrames);
+  updateUI(sc, totalFrames);
+}
+
+function updateUI(sc, totalFrames){
+  const pct = Math.min(1, sceneTimer / totalFrames) * 100;
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('tb' + currentScene).style.width = pct + '%';
+
+  const elapsed = Math.floor(sceneTimer / FPS * SPEEDS[speedIdx]);
+  document.getElementById('timer-display').textContent =
+    `${fmt(elapsed)} / ${fmt(sc.dur)}`;
+}
+
+function fmt(s){
+  const m = Math.floor(s/60);
+  const ss = s % 60;
+  return m + ':' + (ss < 10 ? '0' : '') + ss;
+}
+
+function goTo(i){
+  document.getElementById('cv' + currentScene).classList.remove('active');
+  document.getElementById('th' + currentScene).classList.remove('active');
+  document.getElementById('tb' + currentScene).style.width = '0%';
+  currentScene = i;
+  sceneTimer = 0;
+  document.getElementById('cv' + i).classList.add('active');
+  document.getElementById('th' + i).classList.add('active');
+  document.getElementById('scene-name').textContent = SCENES[i].name;
+  document.getElementById('scene-counter').textContent = `Scene ${i+1} of ${SCENES.length}`;
+  document.getElementById('th' + i).scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'});
+}
+
+function prevScene(){ if(currentScene > 0) goTo(currentScene - 1); }
+function nextScene(){ if(currentScene < SCENES.length - 1) goTo(currentScene + 1); }
+
+function togglePlay(){
+  isPlaying = !isPlaying;
+  document.getElementById('playbtn').innerHTML = isPlaying ? '‖' : '►';
+}
+
+function cycleSpeed(){
+  speedIdx = (speedIdx + 1) % SPEEDS.length;
+  document.getElementById('speed-btn').textContent = SPEEDS[speedIdx] + '×';
+}
+
+function seekByClick(e){
+  const rect = e.currentTarget.getBoundingClientRect();
+  const pct = (e.clientX - rect.left) / rect.width;
+  const totalDur = SCENES.reduce((sum,s) => sum + s.dur, 0);
+  let acc = 0, target = pct * totalDur;
+  for(let i = 0; i < SCENES.length; i++){
+    if(acc + SCENES[i].dur >= target){
+      goTo(i);
+      sceneTimer = Math.floor((target - acc) * FPS / SPEEDS[speedIdx]);
+      break;
+    }
+    acc += SCENES[i].dur;
+  }
+}
+
+// ── Helpers ──
+function lerp(a,b,t){ return a + (b-a)*t; }
+function rnd(a,b){ return a + Math.random()*(b-a); }
+function easeIO(t){ return t<.5 ? 2*t*t : 1 - Math.pow(-2*t+2,2)/2; }
+
+// ────────────────────────────────────────────────
+//  RENDER FUNCTIONS — 30 original animations
+// ────────────────────────────────────────────────
+const RENDERERS = [];
+
+// 0 — Inner Citadel
+RENDERERS[0] = (gt,st,tot) => {
+  const cx = ctxs[0], p = st/tot, e = easeIO(p);
+  cx.fillStyle = 'rgba(0,0,0,0.16)'; cx.fillRect(0,0,W,H);
+  for(let r=160; r<=380; r+=48){
+    const n = Math.floor(r*0.19);
+    for(let i=0; i<n; i++){
+      const a = i/n*Math.PI*2 + gt*0.0008;
+      const rr = r * (0.5 + e*0.5);
+      const x = W/2 + Math.cos(a)*rr;
+      const y = H/2 + Math.sin(a)*rr*0.7;
+      const g = 0.4 + Math.sin(gt*0.022 + i)*0.25;
+      cx.beginPath(); cx.arc(x,y,9+11*e,0,Math.PI*2);
+      cx.fillStyle = `rgba(220,190,110,${g*e})`; cx.fill();
+    }
+  }
+  const cg = cx.createRadialGradient(W/2,H/2,0,W/2,H/2,240);
+  cg.addColorStop(0,`rgba(255,240,180,${e*0.28})`); cg.addColorStop(1,'rgba(0,0,0,0)');
+  cx.fillStyle = cg; cx.fillRect(0,0,W,H);
+};
+
+// 1 — Dichotomy of Control
+RENDERERS[1] = (gt,st,tot) => {
+  const cx = ctxs[1], p = st/tot, sep = Math.min(1, Math.max(0,(p-0.25)/0.55));
+  const e = easeIO(sep);
+  cx.fillStyle = 'rgba(0,0,0,0.15)'; cx.fillRect(0,0,W,H);
+  const lx = lerp(W*0.34, W*0.16, e), rx = lerp(W*0.66, W*0.84, e);
+  for(let i=0; i<240; i++){
+    const a = gt*0.013 + i*0.026;
+    const r = 50 + Math.sin(i*0.4 + gt*0.008)*40;
+    const x = lx + Math.cos(a)*r*(1-e*0.8);
+    const y = H/2 + Math.sin(a)*r*0.65;
+    cx.fillStyle = `rgba(240,80,50,${0.5*(1-e)})`;
+    cx.fillRect(x-3,y-3,6,6);
+  }
+  for(let i=0; i<160; i++){
+    const a = gt*0.006 + i*0.038;
+    const x = rx + Math.cos(a)*120;
+    const y = H/2 + Math.sin(a)*80;
+    const b = 180 + Math.sin(gt*0.03 + i)*75;
+    cx.fillStyle = `rgba(140,210,${b},${0.45 + e*0.45})`;
+    cx.fillRect(x-2,y-2,4,4);
+  }
+};
+
+// 2 — View From Above
+RENDERERS[2] = (gt,st,tot) => {
+  const cx = ctxs[2], p = st/tot, z = easeIO(p);
+  cx.fillStyle = 'rgba(0,0,0,0.07)'; cx.fillRect(0,0,W,H);
+  const sc = 0.12 + z*4.8;
+  for(let i=0; i<360; i++){
+    const x = rnd(0,W*3)-W, y = rnd(0,H*3)-H;
+    const xx = W/2 + x*sc, yy = H/2 + y*sc;
+    const a = 0.25 + Math.sin(gt*0.022 + i*3)*0.4;
+    cx.fillStyle = `rgba(255,255,255,${a*z})`;
+    cx.fillRect(xx-1.2,yy-1.2,2.4,2.4);
+  }
+  if(z > 0.35){
+    const g = cx.createRadialGradient(W/2,H/2,0,W/2,H/2,110);
+    g.addColorStop(0,`rgba(80,180,255,${(z-0.35)*1.2})`);
+    g.addColorStop(1,'rgba(0,0,0,0)'); cx.fillStyle = g; cx.fillRect(0,0,W,H);
+  }
+};
+
+// 3 — Impermanence (sand mandala dissolving)
+RENDERERS[3] = (gt,st,tot) => {
+  const cx = ctxs[3], p = st/tot;
+  let alpha = p < 0.4 ? p/0.4 : p < 0.6 ? 1 : 1 - (p-0.6)/0.4;
+  cx.fillStyle = 'rgba(6,4,2,0.18)'; cx.fillRect(0,0,W,H);
+  const ox = W/2, oy = H/2;
+  for(let r=60; r<=420; r+=60){
+    const rot = gt*0.004 - (r/420)*0.008;
+    for(let i=0; i<24 + r/30; i++){
+      const a = i/(24+r/30)*Math.PI*2 + rot;
+      const x = ox + Math.cos(a)*r;
+      const y = oy + Math.sin(a)*r;
+      cx.beginPath(); cx.arc(x,y,2.4,0,Math.PI*2);
+      cx.fillStyle = `rgba(255,210,90,${alpha*0.65})`; cx.fill();
+    }
+  }
+  if(p > 0.6){
+    const wind = (p-0.6)*5;
+    cx.fillStyle = `rgba(40,30,12,${(p-0.6)*0.7})`; cx.fillRect(0,0,W,H);
+  }
+};
+
+// 4 — Steady Inner Flame
+RENDERERS[4] = (gt,st,tot) => {
+  const cx = ctxs[4];
+  cx.fillStyle = 'rgba(0,0,0,0.11)'; cx.fillRect(0,0,W,H);
+  const breathe = Math.sin(gt*0.028)*0.5 + 0.5;
+  const g = cx.createRadialGradient(W/2,H*0.64,0,W/2,H*0.64,180);
+  g.addColorStop(0,'rgba(255,220,70,0.38)'); g.addColorStop(0.5,'rgba(255,120,30,0.18)');
+  g.addColorStop(1,'rgba(0,0,0,0)'); cx.fillStyle = g; cx.fillRect(0,0,W,H);
+  for(let i=0; i<90; i++){
+    const a = gt*0.009 + i*0.07;
+    const r = 20 + Math.sin(a*3)*12;
+    const x = W/2 + Math.cos(a)*r;
+    const y = H*0.64 + Math.sin(a*1.4)*r*0.6;
+    const life = (Math.sin(a*5)+1)*0.5;
+    cx.beginPath(); cx.arc(x,y,2 + life*6,0,Math.PI*2);
+    cx.fillStyle = `rgba(255,${Math.floor(140+life*100)},${Math.floor(30+life*80)},${life*0.9})`;
+    cx.fill();
+  }
+};
+
+// 5 — Amor Fati
+RENDERERS[5] = (gt,st,tot) => {
+  const cx = ctxs[5], p = st/tot, trans = Math.min(1, Math.max(0, (p-0.3)/0.6));
+  const e = easeIO(trans);
+  cx.fillStyle = `rgba(${Math.floor(lerp(10,2,e))},${Math.floor(lerp(10,4,e))},${Math.floor(lerp(20,8,e))},0.14)`;
+  cx.fillRect(0,0,W,H);
+  for(let i=0; i<300; i++){
+    const x = W/2 + Math.sin(gt*0.01 + i*0.1) * 400 * (1 - e*0.92);
+    const y = H/2 + Math.cos(gt*0.01 + i*0.1) * 300 * (1 - e*0.92);
+    const hue = (i*3 + e*180) % 360;
+    cx.beginPath(); cx.arc(x,y,2.5,0,Math.PI*2);
+    cx.fillStyle = `hsla(${hue}, ${lerp(40, 220, e)}%, ${lerp(30,70,e)}%, ${0.5 + e*0.4})`;
+    cx.fill();
+  }
+  const g = cx.createRadialGradient(W/2,H/2,0,W/2,H/2,300);
+  g.addColorStop(0, `rgba(255,220,100,${e*0.25})`);
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  cx.fillStyle = g; cx.fillRect(0,0,W,H);
+};
+
+// 6 — Habit Formation
+RENDERERS[6] = (gt,st,tot) => {
+  const cx = ctxs[6], p = st/tot, prog = Math.min(1, p/0.65);
+  cx.fillStyle = 'rgba(0,0,0,0.15)'; cx.fillRect(0,0,W,H);
+  const layers = [0,60,120,180,240];
+  layers.forEach((y,i) => {
+    const cnt = 13 - i*2, ww = 110 + i*8, start = (W - cnt*ww)/2;
+    for(let j=0; j<cnt; j++){
+      const delay = Math.floor((i*cnt + j)/8)*0.06;
+      const rise = Math.max(0, Math.min(1, (prog - delay)/0.4));
+      const re = rise < 0.5 ? 2*rise*rise : 1 - Math.pow(-2*rise+2,2)/2;
+      const yy = lerp(H + 100, H*0.7 - y - 55, re);
+      const sh = Math.floor(60 + (i*cnt + j)*2 + Math.sin(gt*0.02 + i*cnt + j)*6);
+      cx.fillStyle = `rgb(${sh},${sh-8},${sh-20})`;
+      cx.fillRect(start + j*ww, yy, ww-4, 52);
+      cx.fillStyle = `rgba(220,200,140,${re*0.15})`;
+      cx.fillRect(start + j*ww, yy, ww-4, 3);
+    }
+  });
+  if(prog > 0.7){
+    const g = cx.createRadialGradient(W/2, H*0.45, 0, W/2, H*0.45, 280);
+    g.addColorStop(0, `rgba(255,210,90,${(prog-0.7)*0.22})`);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    cx.fillStyle = g; cx.fillRect(0,0,W,H);
+  }
+};
+
+// 7 — Flow Around Obstacle
+RENDERERS[7] = (gt,st,tot) => {
+  const cx = ctxs[7], p = st/tot, calm = Math.min(1, Math.max(0, (p-0.25)/0.6));
+  const e = easeIO(calm);
+  cx.fillStyle = `rgb(${Math.floor(lerp(4,10,e))},${Math.floor(lerp(10,30,e))},${Math.floor(lerp(20,60,e))})`;
+  cx.fillRect(0,0,W,H);
+  for(let i=0; i<140; i++){
+    const x = (i/140)*W*1.4 - W*0.2;
+    const y = H*0.3 + Math.sin(i*0.4)*80;
+    const sway = Math.sin(gt*0.03 + i*0.7) * (30 * (1-calm));
+    const yy = y + Math.sin(gt*0.015 + i*0.7)*12*(1-calm);
+    cx.beginPath();
+    cx.moveTo(x - 40, yy - 20);
+    cx.quadraticCurveTo(x + sway, yy, x + 40, yy + 20);
+    cx.strokeStyle = `rgba(120,200,255,${0.4 + e*0.35})`;
+    cx.lineWidth = 14 * (0.6 + e*0.4); cx.stroke();
+  }
+  const rg = cx.createLinearGradient(0, H*0.4, 0, H);
+  rg.addColorStop(0, `rgba(80,180,255,${e*0.12})`);
+  rg.addColorStop(1, 'rgba(0,0,0,0)');
+  cx.fillStyle = rg; cx.fillRect(0,0,W,H);
+};
+
+// 8 — Premeditatio Malorum
+RENDERERS[8] = (gt,st,tot) => {
+  const cx = ctxs[8], p = st/tot, fade = Math.min(1, Math.max(0, (p-0.4)/0.5));
+  cx.fillStyle = 'rgba(0,0,0,0.14)'; cx.fillRect(0,0,W,H);
+  for(let i=0; i<40; i++){
+    const life = (gt + i*180) % 300;
+    if(life < 120){
+      const a = life/120;
+      const ea = a < 0.5 ? 2*a*a : 1 - Math.pow(-2*a+2,2)/2;
+      const x = W/2 + Math.sin(i*0.3) * 200;
+      const y = H/2 + Math.cos(i*0.3) * 150;
+      const size = 60 + i*2.5;
+      const g = cx.createRadialGradient(x,y,0,x,y,size);
+      g.addColorStop(0, `rgba(80,20,0,${ea*0.4*(1-fade)})`);
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      cx.fillStyle = g; cx.fillRect(x-size,y-size,size*2,size*2);
+    }
+  }
+  if(fade > 0.1){
+    const calm = cx.createRadialGradient(W/2,H/2,0,W/2,H/2,400);
+    calm.addColorStop(0, `rgba(200,220,255,${fade*0.18})`);
+    calm.addColorStop(1, 'rgba(0,0,0,0)');
+    cx.fillStyle = calm; cx.fillRect(0,0,W,H);
+  }
+};
+
+// 9 — Memento Mori
+RENDERERS[9] = (gt,st,tot) => {
+  const cx = ctxs[9], p = st/tot, sand = 0.85 - p*0.65;
+  cx.fillStyle = 'rgba(0,0,0,0.12)'; cx.fillRect(0,0,W,H);
+  cx.beginPath();
+  cx.moveTo(W/2-60, H*0.2);
+  cx.lineTo(W/2+60, H*0.2);
+  cx.lineTo(W/2+30, H*0.45);
+  cx.lineTo(W/2-30, H*0.45);
+  cx.closePath();
+  cx.fillStyle = 'rgba(60,50,40,0.4)'; cx.fill();
+  const sandH = H*0.45 - (H*0.25 * sand);
+  cx.fillStyle = 'rgba(240,220,140,0.8)';
+  cx.fillRect(W/2-28, sandH, 56, H*0.45 - sandH + 10);
+  cx.beginPath();
+  cx.moveTo(W/2-30, H*0.55);
+  cx.lineTo(W/2+30, H*0.55);
+  cx.lineTo(W/2+60, H*0.8);
+  cx.lineTo(W/2-60, H*0.8);
+  cx.closePath();
+  cx.fillStyle = 'rgba(60,50,40,0.4)'; cx.fill();
+  const pulse = Math.sin(gt*0.025)*0.15 + 0.5;
+  if(pulse > 0.4){
+    const g = cx.createRadialGradient(W/2, H/2, 0, W/2, H/2, 220);
+    g.addColorStop(0, `rgba(220,200,180,${pulse*0.12})`);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    cx.fillStyle = g; cx.fillRect(0,0,W,H);
+  }
+};
+
+// 10 — Virtue Compass
+RENDERERS[10] = (gt,st,tot) => {
+  const cx = ctxs[10];
+  cx.fillStyle = 'rgba(0,0,0,0.13)'; cx.fillRect(0,0,W,H);
+  const shake = Math.sin(gt*0.07)*0.8 + Math.sin(gt*0.13)*0.5;
+  cx.beginPath(); cx.arc(W/2, H/2, 220, 0, Math.PI*2);
+  cx.strokeStyle = 'rgba(180,180,220,0.3)'; cx.lineWidth = 2; cx.stroke();
+  const ang = shake * 0.06;
+  const len = 180;
+  const nx = W/2 + Math.cos(ang)*len;
+  const ny = H/2 + Math.sin(ang)*len;
+  cx.beginPath(); cx.moveTo(W/2, H/2);
+  cx.lineTo(nx, ny);
+  cx.strokeStyle = 'rgba(255,240,100,0.9)'; cx.lineWidth = 6; cx.stroke();
+  const g = cx.createRadialGradient(W/2,H/2,0,W/2,H/2,80);
+  g.addColorStop(0, 'rgba(255,240,140,0.45)');
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  cx.fillStyle = g; cx.fillRect(0,0,W,H);
+};
+
+// 11 — Anchor in Storm
+RENDERERS[11] = (gt,st,tot) => {
+  const cx = ctxs[11], p = st/tot, calm = Math.min(1, Math.max(0, (p-0.3)/0.6));
+  const e = easeIO(calm);
+  cx.fillStyle = `rgb(${Math.floor(lerp(6,14,e))},${Math.floor(lerp(12,40,e))},${Math.floor(lerp(30,80,e))})`;
+  cx.fillRect(0,0,W,H);
+  for(let w=0; w<60; w++){
+    const amp = (1-e) * (18 + Math.sin(gt*0.02 + w*0.12)*12);
+    const y = H*0.6 + Math.sin(gt*0.03 + w*0.24)*amp;
+    cx.beginPath();
+    cx.moveTo(0, y);
+    for(let x=0; x<=W; x+=40){
+      const yy = y + Math.sin(gt*0.04 + x*0.008 + w*0.12)*amp*0.6;
+      cx.lineTo(x, yy);
+    }
+    cx.lineTo(W, H); cx.lineTo(0, H); cx.closePath();
+    cx.fillStyle = `rgba(40,90,180,${0.25 + e*0.15})`; cx.fill();
+  }
+  const chainY = lerp(H*0.2, H*0.75, e);
+  cx.beginPath(); cx.moveTo(W/2, H*0.15);
+  cx.lineTo(W/2 + Math.sin(gt*0.06)*6, chainY);
+  cx.strokeStyle = 'rgba(180,160,120,0.7)'; cx.lineWidth = 14; cx.stroke();
+  cx.beginPath(); cx.arc(W/2, chainY+30, 24, 0, Math.PI*2);
+  cx.fillStyle = 'rgba(140,120,80,0.9)'; cx.fill();
+};
+
+// 12 — Mirror of the Soul
+RENDERERS[12] = (gt,st,tot) => {
+  const cx = ctxs[12], p = st/tot, align = Math.min(1, Math.max(0, (p-0.2)/0.65));
+  const e = easeIO(align);
+  cx.fillStyle = 'rgba(0,0,0,0.14)'; cx.fillRect(0,0,W,H);
+  cx.beginPath(); cx.moveTo(0,H*0.5); cx.lineTo(W,H*0.5);
+  cx.strokeStyle = 'rgba(120,180,255,0.25)'; cx.lineWidth = 2; cx.stroke();
+  const realY = H*0.7 + Math.sin(gt*0.03)*12*(1-e);
+  cx.beginPath(); cx.arc(W/2 + Math.sin(gt*0.05)*30, realY, 50, 0, Math.PI*2);
+  cx.fillStyle = `rgba(180,140,100,${0.6 + e*0.3})`; cx.fill();
+  const iy = lerp(H*0.7, H*0.3, e);
+  const ix = W/2 + Math.sin(gt*0.02)*8*(1-e);
+  cx.beginPath(); cx.arc(ix, iy, 50 + 20*e, 0, Math.PI*2);
+  cx.fillStyle = `rgba(220,240,255,${0.4 + e*0.6})`; cx.fill();
+  if(e > 0.5){
+    const g = cx.createRadialGradient(W/2, H/2, 0, W/2, H/2, 400);
+    g.addColorStop(0, `rgba(180,220,255,${(e-0.5)*0.3})`);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    cx.fillStyle = g; cx.fillRect(0,0,W,H);
+  }
+};
+
+// 13 — Eternal Now
+RENDERERS[13] = (gt,st,tot) => {
+  const cx = ctxs[13], p = st/tot;
+  cx.fillStyle = 'rgba(0,0,0,0.1)'; cx.fillRect(0,0,W,H);
+  const freeze = Math.min(1, Math.max(0, (p-0.4)/0.5));
+  const speed = (1-freeze)*0.15;
+  for(let i=0; i<12; i++){
+    const a = gt * speed + i/12 * Math.PI*2;
+    const len = 140 + Math.sin(gt*0.04 + i)*20;
+    const x = W/2 + Math.cos(a)*len;
+    const y = H/2 + Math.sin(a)*len;
+    cx.beginPath(); cx.moveTo(W/2, H/2);
+    cx.lineTo(x, y);
+    cx.strokeStyle = `rgba(220,240,255,${0.4*(1-freeze)})`;
+    cx.lineWidth = 3; cx.stroke();
+  }
+  const g = cx.createRadialGradient(W/2,H/2,0,W/2,H/2,120);
+  g.addColorStop(0, `rgba(255,240,180,${0.5 + freeze*0.5})`);
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  cx.fillStyle = g; cx.fillRect(0,0,W,H);
+};
+
+// 14 — Logos Radiance
+RENDERERS[14] = (gt,st,tot) => {
+  const cx = ctxs[14];
+  cx.fillStyle = 'rgba(0,0,0,0.11)'; cx.fillRect(0,0,W,H);
+  if(gt % 5 === 0){
+    for(let i=0; i<3; i++){
+      const a = Math.random()*Math.PI*2;
+      const r = rnd(20,180);
+      const speed = rnd(0.02,0.09);
+      const life = rnd(80,220);
+      const spark = {a,r,speed,life};
+      for(let f=0; f<life; f++){
+        spark.a += spark.speed;
+        spark.r += 0.4 + Math.sin(gt*0.02)*0.3;
+        const x = W/2 + Math.cos(spark.a)*spark.r;
+        const y = H/2 + Math.sin(spark.a)*spark.r*0.6;
+        const a = spark.life / 180;
+        cx.beginPath(); cx.arc(x,y,2 + a*6,0,Math.PI*2);
+        cx.fillStyle = `rgba(255,${Math.floor(220 - a*100)},${Math.floor(80 + a*140)},${a*0.9})`;
+        cx.fill();
+      }
+    }
+  }
+  const core = cx.createRadialGradient(W/2,H/2,0,W/2,H/2,140);
+  core.addColorStop(0, 'rgba(255,240,100,0.55)');
+  core.addColorStop(0.6, 'rgba(255,140,40,0.25)');
+  core.addColorStop(1, 'rgba(0,0,0,0)');
+  cx.fillStyle = core; cx.fillRect(0,0,W,H);
+};
+
+// 15 — Void Acceptance
+RENDERERS[15] = (gt,st,tot) => {
+  const cx = ctxs[15], p = st/tot, build = Math.min(1, Math.max(0, (p-0.1)/0.55));
+  const e = easeIO(build);
+  cx.fillStyle = 'rgba(0,0,0,0.16)'; cx.fillRect(0,0,W,H);
+  for(let i=0; i<160; i++){
+    const a = gt*0.006 + Math.sin(gt*0.02 + i)*0.004 + i*0.04;
+    const rr = 380 + Math.sin(gt*0.03 + i)*40;
+    const x = W/2 + Math.cos(a)*rr;
+    const y = H/2 + Math.sin(a)*rr*0.7;
+    cx.fillStyle = `rgba(140,50,20,${0.35*(1-e)})`;
+    cx.fillRect(x-3,y-3,6,6);
+  }
+  for(let i=0; i<120; i++){
+    const a = i/120 * Math.PI*2;
+    const glow = 0.4 + Math.sin(gt*0.018 + i)*0.25;
+    const sz = 12 + 10*e;
+    const rr = lerp(120, 180 + Math.sin(i)*80, e);
+    const x = W/2 + Math.cos(a)*rr;
+    const y = H/2 + Math.sin(a)*rr;
+    cx.beginPath(); cx.arc(x,y,sz,0,Math.PI*2);
+    cx.fillStyle = `rgba(220,190,110,${glow*e})`; cx.fill();
+  }
+  const g = cx.createRadialGradient(W/2,H/2,0,W/2,H/2,180);
+  g.addColorStop(0, `rgba(255,240,180,${e*0.28})`);
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  cx.fillStyle = g; cx.fillRect(0,0,W,H);
+};
+
+// 16 — Cosmic Perspective
+RENDERERS[16] = (gt,st,tot) => {
+  const cx = ctxs[16], p = st/tot, zoom = Math.min(1, Math.max(0, (p-0.15)/0.7));
+  const e = easeIO(zoom);
+  cx.fillStyle = 'rgba(0,0,0,0.08)'; cx.fillRect(0,0,W,H);
+  const scale = 0.15 + e*3.8;
+  const ox = W/2 - (W/2)*e*0.8;
+  const oy = H/2 - (H/2)*e*0.6;
+  for(let i=0; i<180; i++){
+    const x = rnd(0,W), y = rnd(0,H);
+    const ss = (0.4 + Math.random()*1.4) * (1 + e*1.5);
+    const alpha = 0.3 + Math.sin(gt*0.04 + i)*0.4;
+    cx.fillStyle = `rgba(255,255,255,${alpha*(1-zoom*0.3)})`;
+    cx.fillRect(ox + (x-W/2)*scale, oy + (y-H/2)*scale, ss, ss);
+  }
+  if(e > 0.4){
+    const g = cx.createRadialGradient(W/2,H/2,0,W/2,H/2,90);
+    g.addColorStop(0, `rgba(80,180,255,${(e-0.4)*0.9})`);
+    g.addColorStop(0.7, `rgba(40,100,220,${(e-0.4)*0.4})`);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    cx.fillStyle = g; cx.fillRect(0,0,W,H);
+  }
+};
+
+// 17 — Ephemeral Trace
+RENDERERS[17] = (gt,st,tot) => {
+  const cx = ctxs[17], p = st/tot;
+  let alpha = p < 0.35 ? p/0.35 : p < 0.6 ? 1 : 1 - (p-0.6)/0.4;
+  cx.fillStyle = 'rgba(6,4,0,0.18)'; cx.fillRect(0,0,W,H);
+  const ox = W/2, oy = H/2;
+  const rings = [60,120,190,270,360];
+  rings.forEach((r, i) => {
+    const a = gt * (0.008 - i*0.003);
+    for(let k = 0; k < 24 + i*4; k++){
+      const ang = a + k / (24+i*4) * Math.PI*2;
+      const x = ox + Math.cos(ang)*r;
+      const y = oy + Math.sin(ang)*r;
+      cx.beginPath(); cx.arc(x,y,2.5,0,Math.PI*2);
+      cx.fillStyle = `rgba(255,210,90,${alpha*0.6})`; cx.fill();
+    }
+  });
+  if(p > 0.6){
+    cx.fillStyle = `rgba(40,30,10,${0.5*(p-0.6)})`;
+    cx.fillRect(0,0,W,H);
+  }
+  const g = cx.createRadialGradient(W/2,H/2,0,W/2,H/2,500);
+  g.addColorStop(0, `rgba(80,50,0,${alpha*0.07})`);
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  cx.fillStyle = g; cx.fillRect(0,0,W,H);
+};
+
+// 18 — Inner Equilibrium
+RENDERERS[18] = (gt,st,tot) => {
+  const cx = ctxs[18], p = st/tot, e = easeIO(p);
+  cx.fillStyle = 'rgba(0,0,0,0.12)'; cx.fillRect(0,0,W,H);
+  const breathe = Math.sin(gt*0.028)*0.5 + 0.5;
+  const g = cx.createRadialGradient(W/2,H*0.64,0,W/2,H*0.64,180);
+  g.addColorStop(0,'rgba(255,220,70,0.38)'); g.addColorStop(0.5,'rgba(255,120,30,0.18)');
+  g.addColorStop(1,'rgba(0,0,0,0)'); cx.fillStyle = g; cx.fillRect(0,0,W,H);
+  for(let i=0; i<90; i++){
+    const a = gt*0.009 + i*0.07;
+    const r = 20 + Math.sin(a*3)*12;
+    const x = W/2 + Math.cos(a)*r;
+    const y = H*0.64 + Math.sin(a*1.4)*r*0.6;
+    const life = (Math.sin(a*5)+1)*0.5;
+    cx.beginPath(); cx.arc(x,y,2 + life*6,0,Math.PI*2);
+    cx.fillStyle = `rgba(255,${Math.floor(140+life*100)},${Math.floor(30+life*80)},${life*0.9})`;
+    cx.fill();
+  }
+};
+
+// 19 — Fate Embraced
+RENDERERS[19] = (gt,st,tot) => {
+  const cx = ctxs[19], p = st/tot, trans = Math.min(1, Math.max(0, (p-0.3)/0.6));
+  const e = easeIO(trans);
+  cx.fillStyle = `rgba(${Math.floor(lerp(10,2,e))},${Math.floor(lerp(10,4,e))},${Math.floor(lerp(20,8,e))},0.14)`;
+  cx.fillRect(0,0,W,H);
+  for(let i=0; i<300; i++){
+    const x = W/2 + Math.sin(gt*0.01 + i*0.1) * 400 * (1 - e*0.92);
+    const y = H/2 + Math.cos(gt*0.01 + i*0.1) * 300 * (1 - e*0.92);
+    const hue = (i*3 + e*180) % 360;
+    cx.beginPath(); cx.arc(x,y,2.5,0,Math.PI*2);
+    cx.fillStyle = `hsla(${hue}, ${lerp(40, 220, e)}%, ${lerp(30,70,e)}%, ${0.5 + e*0.4})`;
+    cx.fill();
+  }
+  const center = cx.createRadialGradient(W/2,H/2,0,W/2,H/2,300);
+  center.addColorStop(0, `rgba(255,220,100,${e*0.25})`);
+  center.addColorStop(1, 'rgba(0,0,0,0)');
+  cx.fillStyle = center; cx.fillRect(0,0,W,H);
+};
+
+// 20 — Discipline Rising
+RENDERERS[20] = (gt,st,tot) => {
+  const cx = ctxs[20], p = st/tot, prog = Math.min(1, p/0.65);
+  cx.fillStyle = 'rgba(0,0,0,0.15)'; cx.fillRect(0,0,W,H);
+  const layers = [0,60,120,180,240];
+  layers.forEach((y,i) => {
+    const cnt = 13 - i*2, ww = 110 + i*8, start = (W - cnt*ww)/2;
+    for(let j=0; j<cnt; j++){
+      const delay = Math.floor((i*cnt + j)/8)*0.06;
+      const rise = Math.max(0, Math.min(1, (prog - delay)/0.4));
+      const re = rise < 0.5 ? 2*rise*rise : 1 - Math.pow(-2*rise+2,2)/2;
+      const yy = lerp(H + 100, H*0.7 - y - 55, re);
+      const sh = Math.floor(60 + (i*cnt + j)*2 + Math.sin(gt*0.02 + i*cnt + j)*6);
+      cx.fillStyle = `rgb(${sh},${sh-8},${sh-20})`;
+      cx.fillRect(start + j*ww, yy, ww-4, 52);
+      cx.fillStyle = `rgba(220,200,140,${re*0.15})`;
+      cx.fillRect(start + j*ww, yy, ww-4, 3);
+    }
+  });
+  if(prog > 0.7){
+    const g = cx.createRadialGradient(W/2, H*0.45, 0, W/2, H*0.45, 280);
+    g.addColorStop(0, `rgba(255,210,90,${(prog-0.7)*0.22})`);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    cx.fillStyle = g; cx.fillRect(0,0,W,H);
+  }
+};
+
+// 21 — Tranquil Current
+RENDERERS[21] = (gt,st,tot) => {
+  const cx = ctxs[21], p = st/tot, calm = Math.min(1, Math.max(0, (p-0.25)/0.6));
+  const e = easeIO(calm);
+  cx.fillStyle = `rgb(${Math.floor(lerp(4,10,e))},${Math.floor(lerp(10,30,e))},${Math.floor(lerp(20,60,e))})`;
+  cx.fillRect(0,0,W,H);
+  for(let i=0; i<140; i++){
+    const x = (i/140)*W*1.4 - W*0.2;
+    const y = H*0.3 + Math.sin(i*0.4)*80;
+    const sway = Math.sin(gt*0.03 + i*0.7) * (30 * (1-calm));
+    const yy = y + Math.sin(gt*0.015 + i*0.7)*12*(1-calm);
+    cx.beginPath();
+    cx.moveTo(x - 40, yy - 20);
+    cx.quadraticCurveTo(x + sway, yy, x + 40, yy + 20);
+    cx.strokeStyle = `rgba(120,200,255,${0.4 + e*0.35})`;
+    cx.lineWidth = 14 * (0.6 + e*0.4); cx.stroke();
+  }
+  const rg = cx.createLinearGradient(0, H*0.4, 0, H);
+  rg.addColorStop(0, `rgba(80,180,255,${e*0.12})`);
+  rg.addColorStop(1, 'rgba(0,0,0,0)');
+  cx.fillStyle = rg; cx.fillRect(0,0,W,H);
+};
+
+// 22 — Shadow Rehearsal
+RENDERERS[22] = (gt,st,tot) => {
+  const cx = ctxs[22], p = st/tot, fade = Math.min(1, Math.max(0, (p-0.4)/0.5));
+  cx.fillStyle = 'rgba(0,0,0,0.14)'; cx.fillRect(0,0,W,H);
+  for(let i=0; i<40; i++){
+    const life = (gt + i*180) % 300;
+    if(life < 120){
+      const a = life/120;
+      const ea = a < 0.5 ? 2*a*a : 1 - Math.pow(-2*a+2,2)/2;
+      const x = W/2 + Math.sin(i*0.3) * 200;
+      const y = H/2 + Math.cos(i*0.3) * 150;
+      const size = 60 + i*2.5;
+      const g = cx.createRadialGradient(x,y,0,x,y,size);
+      g.addColorStop(0, `rgba(80,20,0,${ea*0.4*(1-fade)})`);
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      cx.fillStyle = g; cx.fillRect(x-size,y-size,size*2,size*2);
+    }
+  }
+  if(fade > 0.1){
+    const calm = cx.createRadialGradient(W/2,H/2,0,W/2,H/2,400);
+    calm.addColorStop(0, `rgba(200,220,255,${fade*0.18})`);
+    calm.addColorStop(1, 'rgba(0,0,0,0)');
+    cx.fillStyle = calm; cx.fillRect(0,0,W,H);
+  }
+};
+
+// 23 — Horizon of End
+RENDERERS[23] = (gt,st,tot) => {
+  const cx = ctxs[23], p = st/tot, sand = 0.85 - p*0.65;
+  cx.fillStyle = 'rgba(0,0,0,0.12)'; cx.fillRect(0,0,W,H);
+  cx.beginPath();
+  cx.moveTo(W/2-60, H*0.2);
+  cx.lineTo(W/2+60, H*0.2);
+  cx.lineTo(W/2+30, H*0.45);
+  cx.lineTo(W/2-30, H*0.45);
+  cx.closePath();
+  cx.fillStyle = 'rgba(60,50,40,0.4)'; cx.fill();
+  const sandH = H*0.45 - (H*0.25 * sand);
+  cx.fillStyle = 'rgba(240,220,140,0.8)';
+  cx.fillRect(W/2-28, sandH, 56, H*0.45 - sandH + 10);
+  cx.beginPath();
+  cx.moveTo(W/2-30, H*0.55);
+  cx.lineTo(W/2+30, H*0.55);
+  cx.lineTo(W/2+60, H*0.8);
+  cx.lineTo(W/2-60, H*0.8);
+  cx.closePath();
+  cx.fillStyle = 'rgba(60,50,40,0.4)'; cx.fill();
+  const pulse = Math.sin(gt*0.025)*0.15 + 0.5;
+  if(pulse > 0.4){
+    const g = cx.createRadialGradient(W/2, H/2, 0, W/2, H/2, 220);
+    g.addColorStop(0, `rgba(220,200,180,${pulse*0.12})`);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    cx.fillStyle = g; cx.fillRect(0,0,W,H);
+  }
+};
+
+// 24 — Arete Beacon
+RENDERERS[24] = (gt,st,tot) => {
+  const cx = ctxs[24];
+  cx.fillStyle = 'rgba(0,0,0,0.13)'; cx.fillRect(0,0,W,H);
+  const shake = Math.sin(gt*0.07)*0.8 + Math.sin(gt*0.13)*0.5;
+  cx.beginPath(); cx.arc(W/2, H/2, 220, 0, Math.PI*2);
+  cx.strokeStyle = 'rgba(180,180,220,0.3)'; cx.lineWidth = 2; cx.stroke();
+  const ang = shake * 0.06;
+  const len = 180;
+  const nx = W/2 + Math.cos(ang)*len;
+  const ny = H/2 + Math.sin(ang)*len;
+  cx.beginPath(); cx.moveTo(W/2, H/2);
+  cx.lineTo(nx, ny);
+  cx.strokeStyle = 'rgba(255,240,100,0.9)'; cx.lineWidth = 6; cx.stroke();
+  const g = cx.createRadialGradient(W/2,H/2,0,W/2,H/2,80);
+  g.addColorStop(0, 'rgba(255,240,140,0.45)');
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  cx.fillStyle = g; cx.fillRect(0,0,W,H);
+};
+
+// 25 — Deep Rootedness
+RENDERERS[25] = (gt,st,tot) => {
+  const cx = ctxs[25], p = st/tot, calm = Math.min(1, Math.max(0, (p-0.3)/0.6));
+  const e = easeIO(calm);
+  cx.fillStyle = `rgb(${Math.floor(lerp(6,14,e))},${Math.floor(lerp(12,40,e))},${Math.floor(lerp(30,80,e))})`;
+  cx.fillRect(0,0,W,H);
+  for(let w=0; w<60; w++){
+    const amp = (1-e) * (18 + Math.sin(gt*0.02 + w*0.12)*12);
+    const y = H*0.6 + Math.sin(gt*0.03 + w*0.24)*amp;
+    cx.beginPath();
+    cx.moveTo(0, y);
+    for(let x=0; x<=W; x+=40){
+      const yy = y + Math.sin(gt*0.04 + x*0.008 + w*0.12)*amp*0.6;
+      cx.lineTo(x, yy);
+    }
+    cx.lineTo(W, H); cx.lineTo(0, H); cx.closePath();
+    cx.fillStyle = `rgba(40,90,180,${0.25 + e*0.15})`; cx.fill();
+  }
+  const chainY = lerp(H*0.2, H*0.75, e);
+  cx.beginPath(); cx.moveTo(W/2, H*0.15);
+  cx.lineTo(W/2 + Math.sin(gt*0.06)*6, chainY);
+  cx.strokeStyle = 'rgba(180,160,120,0.7)'; cx.lineWidth = 14; cx.stroke();
+  cx.beginPath(); cx.arc(W/2, chainY+30, 24, 0, Math.PI*2);
+  cx.fillStyle = 'rgba(140,120,80,0.9)'; cx.fill();
+};
+
+// 26 — Self Reconciliation
+RENDERERS[26] = (gt,st,tot) => {
+  const cx = ctxs[26], p = st/tot, align = Math.min(1, Math.max(0, (p-0.2)/0.65));
+  const e = easeIO(align);
+  cx.fillStyle = 'rgba(0,0,0,0.14)'; cx.fillRect(0,0,W,H);
+  cx.beginPath(); cx.moveTo(0,H*0.5); cx.lineTo(W,H*0.5);
+  cx.strokeStyle = 'rgba(120,180,255,0.25)'; cx.lineWidth = 2; cx.stroke();
+  const realY = H*0.7 + Math.sin(gt*0.03)*12*(1-e);
+  cx.beginPath(); cx.arc(W/2 + Math.sin(gt*0.05)*30, realY, 50, 0, Math.PI*2);
+  cx.fillStyle = `rgba(180,140,100,${0.6 + e*0.3})`; cx.fill();
+  const iy = lerp(H*0.7, H*0.3, e);
+  const ix = W/2 + Math.sin(gt*0.02)*8*(1-e);
+  cx.beginPath(); cx.arc(ix, iy, 50 + 20*e, 0, Math.PI*2);
+  cx.fillStyle = `rgba(220,240,255,${0.4 + e*0.6})`; cx.fill();
+  if(e > 0.5){
+    const g = cx.createRadialGradient(W/2, H/2, 0, W/2, H/2, 400);
+    g.addColorStop(0, `rgba(180,220,255,${(e-0.5)*0.3})`);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    cx.fillStyle = g; cx.fillRect(0,0,W,H);
+  }
+};
+
+// 27 — Present Radiance
+RENDERERS[27] = (gt,st,tot) => {
+  const cx = ctxs[27], p = st/tot;
+  cx.fillStyle = 'rgba(0,0,0,0.1)'; cx.fillRect(0,0,W,H);
+  const freeze = Math.min(1, Math.max(0, (p-0.4)/0.5));
+  const speed = (1-freeze)*0.15;
+  for(let i=0; i<12; i++){
+    const a = gt * speed + i/12 * Math.PI*2;
+    const len = 140 + Math.sin(gt*0.04 + i)*20;
+    const x = W/2 + Math.cos(a)*len;
+    const y = H/2 + Math.sin(a)*len;
+    cx.beginPath(); cx.moveTo(W/2, H/2);
+    cx.lineTo(x, y);
+    cx.strokeStyle = `rgba(220,240,255,${0.4*(1-freeze)})`;
+    cx.lineWidth = 3; cx.stroke();
+  }
+  const g = cx.createRadialGradient(W/2,H/2,0,W/2,H/2,120);
+  g.addColorStop(0, `rgba(255,240,180,${0.5 + freeze*0.5})`);
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  cx.fillStyle = g; cx.fillRect(0,0,W,H);
+};
+
+// 28 — Rational Core
+RENDERERS[28] = (gt,st,tot) => {
+  const cx = ctxs[28];
+  cx.fillStyle = 'rgba(0,0,0,0.11)'; cx.fillRect(0,0,W,H);
+  if(gt % 5 === 0){
+    for(let i=0; i<3; i++){
+      const a = Math.random()*Math.PI*2;
+      const r = rnd(20,180);
+      const speed = rnd(0.02,0.09);
+      const life = rnd(80,220);
+      const spark = {a,r,speed,life};
+      for(let f=0; f<life; f++){
+        spark.a += spark.speed;
+        spark.r += 0.4 + Math.sin(gt*0.02)*0.3;
+        const x = W/2 + Math.cos(spark.a)*spark.r;
+        const y = H/2 + Math.sin(spark.a)*spark.r*0.6;
+        const a = spark.life / 180;
+        cx.beginPath(); cx.arc(x,y,2 + a*6,0,Math.PI*2);
+        cx.fillStyle = `rgba(255,${Math.floor(220 - a*100)},${Math.floor(80 + a*140)},${a*0.9})`;
+        cx.fill();
+      }
+    }
+  }
+  const core = cx.createRadialGradient(W/2,H/2,0,W/2,H/2,140);
+  core.addColorStop(0, 'rgba(255,240,100,0.55)');
+  core.addColorStop(0.6, 'rgba(255,140,40,0.25)');
+  core.addColorStop(1, 'rgba(0,0,0,0)');
+  cx.fillStyle = core; cx.fillRect(0,0,W,H);
+};
+
+// 29 — Final Equanimity
+RENDERERS[29] = (gt,st,tot) => {
+  const cx = ctxs[29], p = st/tot, e = easeIO(p);
+  cx.fillStyle = 'rgba(0,0,0,0.13)'; cx.fillRect(0,0,W,H);
+  const ox = W/2, oy = H/2;
+  const pulse = Math.sin(gt*0.022 + 29)*0.4 + 0.6;
+  for(let r=1; r<=6; r++){
+    const rad = r*60 + pulse*30 + e*120;
+    cx.beginPath(); cx.arc(ox,oy,rad,0,Math.PI*2);
+    cx.strokeStyle = `rgba(180,220,255,${(0.12-r*0.015)*e})`; cx.lineWidth = 1.2; cx.stroke();
+  }
+  cx.beginPath(); cx.arc(ox,oy,30 + 50*e + pulse*12,0,Math.PI*2);
+  cx.fillStyle = `rgba(255,240,160,${0.4 + e*0.5})`; cx.fill();
+  const g = cx.createRadialGradient(W/2,H/2,0,W/2,H/2,240);
+  g.addColorStop(0,`rgba(255,240,180,${e*0.28})`); g.addColorStop(1,'rgba(0,0,0,0)');
+  cx.fillStyle = g; cx.fillRect(0,0,W,H);
+};
+
+// ── START ──
+goTo(0);
+masterLoop();
+</script>
+</body>
+</html>
